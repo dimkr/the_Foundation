@@ -122,10 +122,9 @@ uint32_t iCrc32(const char *data, size_t size) {
         0x5d681b02L, 0x2a6f2b94L, 0xb40bbe37L, 0xc30c8ea1L, 0x5a05df1bL,
         0x2d02ef8dL
     };
-
-    uint32_t crc32 = 0;
+    uint32_t crc32 = 0xffffffffu;
     for (size_t i = 0; i < size; ++i) {
         crc32 = crc32_tab[(crc32 ^ data[i]) & 0xff] ^ (crc32 >> 8);
     }
-    return crc32;
+    return ~crc32;
 }
