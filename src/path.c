@@ -336,7 +336,7 @@ static iString *unixToWindows_(const char *cstr, iBool makeAbsolute) {
         free(winPath);
         return str;
     }
-    return new_String();
+    return newCStr_String(cstr); /* seems fine as-is? */
 }
 
 iString *unixToWindowsRelative_Path(const char *cstr) {
