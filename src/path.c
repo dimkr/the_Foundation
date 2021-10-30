@@ -265,7 +265,11 @@ iBool rmdir_Path(const iString *path) {
 }
 
 iRangecc baseName_Path(const iString *d) {
-    const size_t sep = lastIndexOfCStr_String(d, iPathSeparator);
+    return baseNameSep_Path(d, iPathSeparator);
+}
+
+iRangecc baseNameSep_Path(const iString *d, const char *separator) {
+    const size_t sep = lastIndexOfCStr_String(d, separator);
     return (iRangecc){ cstr_String(d) + (sep == iInvalidSize ? 0 : (sep + 1)),
                        constEnd_String(d) };
 }

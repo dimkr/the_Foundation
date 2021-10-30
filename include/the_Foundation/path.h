@@ -70,6 +70,7 @@ iLocalDef const char *cleanedPath_CStr(const char *cstr) {
 }
 
 iRangecc    baseName_Path           (const iString *); /* returns address of last component */
+iRangecc    baseNameSep_Path        (const iString *, const char *separator);
 iRangecc    withoutExtension_Path   (const iString *);
 iRangecc    dirName_Path            (const iString *); /* native path separator */
 iRangecc    dirNameSep_Path         (const iString *, const char *separator);
