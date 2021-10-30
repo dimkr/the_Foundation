@@ -38,14 +38,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 
 #   if defined (iPlatformMsys)
 #       define R_OK 0
+#       define W_OK 1
 
 static int access(const char *path, int mode) {
     const iString str = iStringLiteral(path);
     iBlock *wpath = toUtf16_String(&str);
     const DWORD attr = GetFileAttributesW(data_Block(wpath));
     delete_Block(wpath);
-    iUnused(mode);
-    return (attr == INVALID_FILE_ATTRIBUTES ? -1 : 0);
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+        return -1;
+    }
+    if (mode == W_OK) {
+        return (attr & FILE_ATTRIBUTE_READONLY) ? -1 : 0;
+    }
+    return 0;
 }
 #   endif /* defined (iPlatformMsys) */
 
