@@ -4,6 +4,7 @@ project (the_Foundation VERSION 1.0.0 LANGUAGES C)
 include (CheckIncludeFile)
 include (CheckCSourceCompiles)
 include (CheckFunctionExists)
+include (GNUInstallDirs)
 include (TestBigEndian)
 include (CheckSSE.cmake)
 find_package (Git)
@@ -355,18 +356,20 @@ tfdn_link_depends (${TFDN_LIB} ${TFDN_DEPENDS_LINK_MODE})
 if (TFDN_ENABLE_INSTALL)
     install (TARGETS ${TFDN_LIB}
         EXPORT ${TFDN_LIB}
-        DESTINATION lib
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
     install (EXPORT ${TFDN_LIB}
-        DESTINATION lib/cmake/${TFDN_LIB}
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${TFDN_LIB}
         NAMESPACE the_Foundation::
         FILE ${TFDN_LIB}Config.cmake
     )
     install (DIRECTORY include/the_Foundation
-        DESTINATION include
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
         FILES_MATCHING PATTERN "*.h"
     )
-    install (FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h DESTINATION include/the_Foundation)
+    install (FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/the_Foundation
+    )
 endif ()
 
 #----------------------------------------------------------------------------------------
