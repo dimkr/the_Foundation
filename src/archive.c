@@ -367,10 +367,12 @@ static iArchiveEntry *loadEntry_Archive_(const iArchive *d, size_t index) {
         else {
             entry->data = arch;
         }
+#if defined (iHaveDebugOutput)
         const uint32_t checksum = crc32_Block(entry->data);
         if (checksum != entry->crc32) {
             iWarning("[Archive] failed checksum on entry: %s\n", cstr_String(&entry->path));
         }
+#endif
     }
     return entry;
 }
