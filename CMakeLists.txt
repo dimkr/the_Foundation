@@ -1,9 +1,12 @@
 cmake_minimum_required (VERSION 3.1)
 
 project (the_Foundation VERSION 1.0.0 LANGUAGES C)
+set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
+
 include (CheckIncludeFile)
 include (CheckCSourceCompiles)
 include (CheckFunctionExists)
+include (CMakePackageConfigHelpers)
 include (GNUInstallDirs)
 include (TestBigEndian)
 include (CheckSSE.cmake)
@@ -313,6 +316,15 @@ else ()
 endif ()
 
 add_library (${TFDN_LIB} ${TFDN_LIBTYPE} ${SOURCES} ${HEADERS})
+write_basic_package_version_file (
+    ${CMAKE_CURRENT_BINARY_DIR}/${TFDN_LIB}ConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+set_target_properties (${TFDN_LIB} PROPERTIES
+    VERSION   ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
 if (iPlatformMsys)
     set_target_properties (${TFDN_LIB} PROPERTIES
         OUTPUT_NAME       Foundation
@@ -344,6 +356,13 @@ if (IOS)
     set_target_properties (${TFDN_LIB} PROPERTIES XCODE_ATTRIBUTE_ARCHS arm64)
 endif ()
 
+# Generate a simple pkgconfig file.
+configure_file (
+    the_Foundation.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/the_Foundation.pc
+    @ONLY
+)
+
 # Dependencies.
 if (NOT iHaveC11Threads)
     # phtread is exposed via header file usage, so it must be linked publicly.
@@ -369,6 +388,13 @@ if (TFDN_ENABLE_INSTALL)
     )
     install (FILES ${CMAKE_CURRENT_BINARY_DIR}/config.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/the_Foundation
+    )
+    # TODO: Should the .pc file be only for release builds? (debug suffix...)
+    install (FILES ${CMAKE_CURRENT_BINARY_DIR}/the_Foundation.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+    )
+    install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${TFDN_LIB}ConfigVersion.cmake
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${TFDN_LIB}
     )
 endif ()
 
