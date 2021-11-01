@@ -1,6 +1,6 @@
 # the_Foundation: a C11 library
 
-An object-oriented C library whose APIs are designed for a particular coding style, taking cues from C++ iterators, STL collections, and Qt.
+An object-oriented C library whose API is designed for a particular coding style, taking cues from C++ iterators, STL collections, and Qt.
 
 ## Introduction
 
