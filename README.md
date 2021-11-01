@@ -39,7 +39,7 @@ Using these, one can create and destroy instances of the type without having acc
 
 ### "method_Type" naming convention
 
-Global identifiers and functions generally use the following naming convention:
+Global identifiers generally use the following naming convention:
 
 * `iType`: the prefix `i` is used for the global namespace: all types and verb-like macros. 
 * `Impl_Type`: the private implementation of Type, i.e., a `struct` containing the member variables.
@@ -51,7 +51,7 @@ Global identifiers and functions generally use the following naming convention:
 
 C doesn't have namespaces, so some kind of a prefix is required to avoid conflicts. `i` was chosen to be visually as small as possible, so it doesn't interfere readability as much as a longer or large capital letter prefix.
 
-Usually type names precede a method name in C APIs, but I find it makes reading the code more difficult. The beginnings of words is important as the eye is naturally drawn to them, so we want to have actually meaning information at the beginning of each line of code.
+Usually type names precede a method name in C APIs, but I find it makes reading the code more difficult. The beginnings of words are important as the eye is naturally drawn to them, so we want to have actually meaning information at the beginning of each line of code.
 
 Having the type name be the last part of an identifier is also advantegous because thanks to its location, it becomes naturally associated with the instance pointer, i.e., the first parameter. This enables chaining method calls without losing track of types.
 
