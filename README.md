@@ -1,18 +1,86 @@
 # the_Foundation: a C11 library
 
-Simplicity of C11 combined with the power of object-orientation! API usability is priority #1.
+An object-oriented C library whose APIs are designed for a particular coding style, taking cues from C++ iterators, STL collections, and Qt.
 
 ## Introduction
 
-C++ is an awesome language. It is also extremely complex and each of its modern updates adds even more complexity. Like C, it is a thin abstraction layer over machine instructions, but it also reaches toward ever-higher level of concepts and programming styles. This conflict prevents it from being truly high-level while compromising the benefits of low-level C. The complexity — among other things — makes compiling C++ programs much slower than C.
+I used to write a lot of C++. Over the years, code bases grew larger and more complex, and despite advances in hardware capabilities, everything got slower and more cumbersome. There is a real cost incurred by an ever-increasing cognitive load. C++ seems to be evolving toward being an all-purposes language, so it includes all the bells and whistles in addition to the kitchen sink, but personally, I like something that is smaller and optimized around a small set of core ideas.
 
-**the\_Foundation** is a C11 library and a coding convention for object-oriented programming that has been designed from the point of view of someone who appreciates the user-friendliness of Qt and some of the thinking behind C++ STL. The preprocessor is used heavily to provide flexibility and convenience for the programmer.
+These core ideas can be summarized as:
 
-### Wait, what about GLib?
+* Systematic naming convention that is supported and enforced via macros.
+* Bare-bones object/class system.
+* Memory management assistance: a manually operated garbage collector, and reference counting for all instances of a class.
+* Fluent interfaces where one can chain method calls without losing track of memory ownership or parameter types.
+* Coherent iterator system for all collection types.
 
-GLib is a solid library that serves an important function in GTK. It also has its own coding style and naming conventions that come with a set of assumptions how things are expected to work. However, the\_Foundation aims to be more light-weight and bolder in its conventions to achieve specific design goals.
+### So, it uses macros... yikes?
 
-## Conventions
+Yes, preprocessor macros are a key part of the library. They are used for all the boilerplate declarations needed to make the rest of the system work in a coherent manner. While one could write all of it out manually, that would a) take a lot more effort, b) be a maintenance nightmare, and c) be quite error-prone.
+
+Here is an example of declaring a simple data type that uses a constructor and a destructor.
+
+    iDeclareType(Example)
+    iDeclareTypeConstruction(Example)
+
+These would give you an opaque type `iExample` and declare its basic initializer and deinitializer methods:
+
+    void        init_Example        (iExample *);
+    void        deinit_Example      (iExample *);
+
+These two methods one needs to implement manually for the type. They initialize the members of the type as needed, allocate resources, etc. But the macros also automatically fully define the following methods as very small `static inline` functions:
+
+    iExample *  new_Example         (void);
+    void        delete_Example      (iExample *);
+    iExample *  collect_Example     (iExample *);
+    iExample *  collectNew_Example  (void);
+
+Using these, one can create and destroy instances of the type without having access to the actual members of `iExample`. The collector methods are important as well: one can use those at appropriate times, for example when receiving a return value from a function, to give ownership of the instance to the garbage collector. Then the object can be used normally until the a garbage collector is told to free all the previously collected memory. In practice, this could happen periodically in a program, for example immediately after rendering a frame.
+
+### "method_Type" naming convention
+
+Global identifiers and functions generally use the following naming convention:
+
+* `iType`: the prefix `i` is used for the global namespace: all types and verb-like macros. 
+* `Impl_Type`: the private implementation of Type, i.e., a `struct` containing the member variables.
+* `Class_Type`: the class metadata (vtable) of Type, for types that use the class mechanism.
+* `method_Type`: method of a Type.
+* `method_Type_`: private method of a Type; the underscore as a suffix is used for identifiers not visible outside the current source module.
+* `method_Type(iType *)`: the first parameter is always the instance pointer.
+* `identifier_`: a static global variable or method, i.e., member of a nameless entity (the part following the underscore is empty).
+
+C doesn't have namespaces, so some kind of a prefix is required to avoid conflicts. `i` was chosen to be visually as small as possible, so it doesn't interfere readability as much as a longer or large capital letter prefix.
+
+Usually type names precede a method name in C APIs, but I find it makes reading the code more difficult. The beginnings of words is important as the eye is naturally drawn to them, so we want to have actually meaning information at the beginning of each line of code.
+
+Having the type name be the last part of an identifier is also advantegous because thanks to its location, it becomes naturally associated with the instance pointer, i.e., the first parameter. This enables chaining method calls without losing track of types.
+
+This naming convention is also why the library is called "the\_Foundation": "Foundation" is the actual name, representing the library's role as a low-level programming framework upon which applications can be built.
+
+### Iterators
+
+Iterators are one of the most useful parts of C++ STL. The iterators in the\_Foundation try to replicate some of STL's most useful properties:
+
+* Universal "for each" mechanism for every iterable type.
+* Mutable and const variants.
+* Forward and reverse directions.
+
+The primary limitation for iterators is that they cannot allocate memory on the heap. The iteration must be doable with only local variables that do not need deinitialization when exiting the scope. This allows the use of a simple `for` loop:
+
+    iArrayIterator i;    
+    for (init_ArrayIterator(&i, foo); i.value; next_ArrayIterator(&i)) {
+        /* do stuff... */
+    }
+
+There is a macro for the code above:
+
+    iForEach(Array, i, foo) {
+        /* do stuff... */
+    }
+
+Similarly, there are `iConstForEach`, `iReverseForEach`, and `iReverseConstForEach` macros for different types of iterators. These can be used with any type as long as the corresponding functions are available to be called; it all hinges on the naming convention.
+
+## API and source code conventions
 
 ### General
 
@@ -49,8 +117,8 @@ For a given type `Type`:
 
 ### Iterators
 
-- The member `value` is a pointer to the current element. If NULL, the iteration will stop.
-- The `value` pointer must be the first member in an iterator struct. Derived iterators should use an anonymous union to alias the value pointer to an appropriate type, while remaining compatible with the base class's iterator implementation.
+- The member `value` is represents the current element. If NULL or zero, the iteration will stop.
+- The `value` must be the first member in an iterator struct. Derived iterators should use an anonymous union to alias the value pointer to an appropriate type, while remaining compatible with the base class's iterator implementation.
 - Iterators may have additional members depending on the type of the data and the requirements for internal state.
 - Non-const iterators have a method called `remove` if the currently iterated element can be removed during iteration. Using this ensures that memory owned by the container itself will be released when the element is deleted.
 
