@@ -128,10 +128,32 @@ static iThreadResult run_SocketThread_(iThread *thread) {
         if (FD_ISSET(output_Pipe(&d->wakeup), &reads)) {
             readByte_Pipe(&d->wakeup);
         }
+        /* Check for incoming data. */
+        if (FD_ISSET(d->socket->fd, &reads)) {
+            ssize_t readSize = recv(d->socket->fd, data_Block(inbuf), size_Block(inbuf), 0);
+            if (readSize == 0) {
+                iWarning("[Socket] peer closed the connection while we were receiving\n");
+                shutdown_Socket_(d->socket);
+                return 0;
+            }
+            if (readSize == -1) {
+                if (status_Socket(d->socket) == connected_SocketStatus) {
+                    iWarning("[Socket] error when receiving: %s\n", strerror(errno));
+                    shutdown_Socket_(d->socket);
+                    return errno;
+                }
+                /* This was expected. */
+                return 0;
+            }
+            iGuardMutex(smx, {
+                writeData_Buffer(d->socket->input, constData_Block(inbuf), readSize);
+            });
+            iNotifyAudience(d->socket, readyRead, SocketReadyRead);
+        }
         /* Problem with the socket? */
         if (FD_ISSET(d->socket->fd, &errors)) {
             if (status_Socket(d->socket) == connected_SocketStatus) {
-                iWarning("[Socket] error when receiving: %s\n", strerror(errno));
+                iWarning("[Socket] error while receiving: %s\n", strerror(errno));
                 shutdown_Socket_(d->socket);
                 return errno;
             }
@@ -154,9 +176,12 @@ static iThreadResult run_SocketThread_(iThread *thread) {
                     ssize_t sent = send(d->socket->fd, ptr, remaining, 0);
                     if (sent == -1) {
                         /* Error! */
-                        delete_Block(data);
-                        shutdown_Socket_(d->socket);
-                        return errno;
+                        iWarning("[Socket] peer closed the connection while we were sending "
+                                 "(errno:%d)\n", errno);
+                        /* Don't quit immediately because we need to see if something was received. */
+                        /* TODO: Need to set the Socket in a fail state, though?
+                           Now we're assuming that the error will be noticed later. */
+                        break;
                     }
                     remaining -= sent;
                     ptr += sent;
@@ -174,28 +199,6 @@ static iThreadResult run_SocketThread_(iThread *thread) {
                     }
                 }
             });
-        }
-        /* Check for incoming data. */
-        if (FD_ISSET(d->socket->fd, &reads)) {
-            ssize_t readSize = recv(d->socket->fd, data_Block(inbuf), size_Block(inbuf), 0);
-            if (readSize == 0) {
-                iWarning("[Socket] peer closed the connection\n");
-                shutdown_Socket_(d->socket);
-                return 0;
-            }
-            if (readSize == -1) {
-                if (status_Socket(d->socket) == connected_SocketStatus) {
-                    iWarning("[Socket] error when receiving: %s\n", strerror(errno));
-                    shutdown_Socket_(d->socket);
-                    return errno;
-                }
-                /* This was expected. */
-                return 0;
-            }
-            iGuardMutex(smx, {
-                writeData_Buffer(d->socket->input, constData_Block(inbuf), readSize);
-            });
-            iNotifyAudience(d->socket, readyRead, SocketReadyRead);
         }
     }
     return 0;
