@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.1)
 
-project (the_Foundation VERSION 1.0.1 LANGUAGES C)
+project (the_Foundation VERSION 1.0.2 LANGUAGES C)
 set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
 
 include (CheckIncludeFile)
