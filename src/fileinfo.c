@@ -60,6 +60,8 @@ static int access(const char *path, int mode) {
 #   include <sys/types.h>
 #   if defined (iHaveSysDirent)
 #       include <sys/dirent.h>
+#   elif defined (iPlatformAndroid)
+#       include <dirent.h>
 #   elif !defined (iPlatformHaiku)
 #       include <sys/dir.h>
 #   endif

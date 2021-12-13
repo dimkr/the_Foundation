@@ -30,13 +30,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #define iFoundationLibraryVersion { ${the_Foundation_VERSION_MAJOR}, ${the_Foundation_VERSION_MINOR}, ${the_Foundation_VERSION_PATCH} }
 #define iFoundationLibraryGitTag "${iFoundationLibraryGitTag}"
 
+#cmakedefine iPlatformAndroid
 #cmakedefine iPlatformApple
 #cmakedefine iPlatformCygwin
-#cmakedefine iPlatformLinux
-#cmakedefine iPlatformWindows
-#cmakedefine iPlatformMsys
 #cmakedefine iPlatformHaiku
+#cmakedefine iPlatformLinux
+#cmakedefine iPlatformMsys
 #cmakedefine iPlatformOther
+#cmakedefine iPlatformWindows
 
 #cmakedefine iHaveDebugOutput
 #cmakedefine iHaveBigEndian
@@ -48,6 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #cmakedefine iHaveOpenSSL
 #cmakedefine iHavePcre
 #cmakedefine iHavePThread
+#cmakedefine iHavePThreadCancel
 #cmakedefine iHavePThreadTimedMutex
 #cmakedefine iHaveRegExp
 #cmakedefine iHaveStrnstr

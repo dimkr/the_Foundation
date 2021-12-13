@@ -58,7 +58,7 @@ struct Impl_Address {
 
 iDefineAudienceGetter(Address, lookupFinished)
 
-#if defined (iPlatformHaiku) || defined (iPlatformOther)
+#if defined (iPlatformHaiku) || defined (iPlatformAndroid) || defined (iPlatformOther)
 #   if defined (AI_V4MAPPED_CFG)
 #       undef AI_V4MAPPED_CFG
 #   endif
@@ -391,6 +391,7 @@ iString *toStringFlags_Address(const iAddress *d, int flags, int family) {
 
 iObjectList *networkInterfaces_Address(void) {
     iObjectList *list = new_ObjectList();
+#if !defined (iPlatformAndroid) /* not supported; see https://github.com/oliviertilmans/android-ifaddrs */
     struct ifaddrs *addrs = NULL;
     if (!getifaddrs(&addrs)) {
         for (struct ifaddrs *i = addrs; i; i = i->ifa_next) {
@@ -411,6 +412,7 @@ iObjectList *networkInterfaces_Address(void) {
         }
         freeifaddrs(addrs);
     }
+#endif
     return list;
 }
 

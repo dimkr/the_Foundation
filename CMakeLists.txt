@@ -1,11 +1,12 @@
 cmake_minimum_required (VERSION 3.1)
 
-project (the_Foundation VERSION 1.0.2 LANGUAGES C)
+project (the_Foundation VERSION 1.1.0 LANGUAGES C)
 set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
 
 include (CheckIncludeFile)
 include (CheckCSourceCompiles)
 include (CheckFunctionExists)
+include (CheckSymbolExists)
 include (CMakePackageConfigHelpers)
 include (GNUInstallDirs)
 include (TestBigEndian)
@@ -71,6 +72,7 @@ check_include_file (sys/dirent.h iHaveSysDirent)
 
 # C11 threads
 check_include_file (pthread.h iHavePThread)
+check_symbol_exists (pthread_cancel pthread.h iHavePThreadCancel)
 #check_include_file (threads.h iHaveC11Threads)
 set (iHaveC11Threads NO) # TODO: Should use either this OR pthread, not both!
 if (FREEBSD OR NETBSD)
@@ -223,6 +225,10 @@ if (APPLE)
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set (iPlatformLinux YES)
     set (SOURCES ${SOURCES} src/platform/linux.c)
+elseif (ANDROID)
+    set (iPlatformLinux YES)
+    set (iPlatformAndroid YES)
+    set (SOURCES ${SOURCES} src/platform/linux.c)
 elseif (WIN32)
     set (iPlatformWindows YES)
     set (SOURCES ${SOURCES} src/platform/windows.c)
@@ -304,7 +310,7 @@ if (GIT_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 endif ()
-configure_file (config.h.in config.h)
+configure_file (config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 set (TFDN_LIB the_Foundation)
 if (TFDN_STATIC_LIBRARY)
@@ -364,7 +370,7 @@ configure_file (
 )
 
 # Dependencies.
-if (NOT iHaveC11Threads)
+if (NOT iHaveC11Threads AND NOT ANDROID)
     # phtread is exposed via header file usage, so it must be linked publicly.
     target_link_libraries (${TFDN_LIB} PUBLIC pthread)
 endif ()

@@ -102,6 +102,10 @@ void setWorkingDirectory_Process(iProcess *d, const iString *cwd) {
 }
 
 iBool start_Process(iProcess *d) {
+#if defined (iPlatformAndroid)
+    /* posix_spawn requires API level 28 */
+    return iFalse;
+#else
     posix_spawn_file_actions_t facts;
     int rc;
     const char **argv;
@@ -147,6 +151,7 @@ iBool start_Process(iProcess *d) {
     close(input_Pipe(&d->pout));
     close(input_Pipe(&d->perr));
     return rc == 0;
+#endif
 }
 
 iProcessId pid_Process(const iProcess *d) {
