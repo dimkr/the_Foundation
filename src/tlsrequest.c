@@ -333,10 +333,10 @@ iTlsCertificate *newSelfSignedRSA_TlsCertificate(
         X509_NAME_free(subject);
     }
     /* Valid from. */ {
-        ASN1_TIME *notBefore = ASN1_TIME_new();
-        ASN1_TIME_set(notBefore, time(NULL));
+        ASN1_UTCTIME *notBefore = ASN1_UTCTIME_new();
+        ASN1_UTCTIME_set(notBefore, time(NULL));
         X509_set1_notBefore(d->cert, notBefore);
-        ASN1_TIME_free(notBefore);
+        ASN1_UTCTIME_free(notBefore);
     }
     /* Valid until. */ {
         ASN1_TIME *notAfter = ASN1_TIME_new();
