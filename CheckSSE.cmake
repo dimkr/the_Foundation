@@ -1,4 +1,8 @@
 set (SSE41_FOUND NO)
+if (DEFINED TFDN_ENABLE_SSE41 AND NOT TFDN_ENABLE_SSE41)
+    return ()
+endif ()
+
 try_run (
     sseRunCode
     sseCompiled
