@@ -53,6 +53,8 @@ iBool   isNumeric_Char      (iChar);
 iBool   isAlphaNumeric_Char (iChar);
 iBool   isPunct_Char        (iChar);
 
+const char *script_Char     (iChar);
+
 iLocalDef iBool isVariationSelector_Char(iChar c) {
     return (c >= 0xfe00 && c <= 0xfe0f) || (c >= 0xe0100 && c <= 0xe0121);
 }

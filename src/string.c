@@ -82,6 +82,11 @@ iBool isPunct_Char(iChar d) {
     return uc_is_punct(d) ? iTrue : iFalse;
 }
 
+const char *script_Char(iChar d) {
+    const uc_script_t *scr = uc_script(d);
+    return scr ? scr->name : "";
+}
+
 void setLocaleCharSet_String(const char *charSet) {
     const size_t n = sizeof(localeCharSet_);
     strncpy(localeCharSet_, charSet, n);
