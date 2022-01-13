@@ -52,6 +52,7 @@ struct Impl_Process {
     iPipe pin;
     iPipe pout;
     iPipe perr;
+    int exitStatus;
 };
 
 iDefineObjectConstruction(Process)
@@ -67,6 +68,7 @@ void init_Process(iProcess *d) {
     init_Pipe(&d->pin);
     init_Pipe(&d->pout);
     init_Pipe(&d->perr);
+    d->exitStatus = 0;
 }
 
 void deinit_Process(iProcess *d) {
@@ -170,9 +172,17 @@ iBool isRunning_Process(const iProcess *d) {
     return iTrue;
 }
 
+int exitStatus_Process(const iProcess *d) {
+    return d->exitStatus;
+}
+
 void waitForFinished_Process(iProcess *d) {
     if (!d->pid) return;
-    waitpid(d->pid, NULL, 0);
+    int ws = 0;
+    waitpid(d->pid, &ws, 0);
+    if (WIFEXITED(ws)) {
+        d->exitStatus = WEXITSTATUS(ws);
+    }
     d->pid = 0;
 }
 

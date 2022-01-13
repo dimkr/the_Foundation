@@ -51,14 +51,16 @@ void        setWorkingDirectory_Process (iProcess *, const iString *cwd);
 
 iBool       start_Process           (iProcess *);
 void        kill_Process            (iProcess *);
-iProcessId  pid_Process             (const iProcess *); /* NULL for current process */
-iBool       isRunning_Process       (const iProcess *);
 void        waitForFinished_Process (iProcess *);
 size_t      writeInput_Process      (iProcess *, const iBlock *data);
 iBlock *    readOutput_Process      (iProcess *);
 iBlock *    readError_Process       (iProcess *);
 
 iBlock *    readOutputUntilClosed_Process   (iProcess *); /* blocking */
+
+iProcessId  pid_Process             (const iProcess *); /* NULL for current process */
+iBool       isRunning_Process       (const iProcess *);
+int         exitStatus_Process      (const iProcess *); /* valid after waitForFinished returns */
 
 iLocalDef iProcessId currentId_Process(void) {
     return pid_Process(NULL);
