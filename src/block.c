@@ -620,4 +620,18 @@ iBlock *decompress_Block(const iBlock *d) {
     return out;
 }
 
+iBlock *decompressGzip_Block(const iBlock *d) {
+    iBlock *out = new_Block(1024);
+    iZStream z;
+    init_ZStream_(&z, d, out);
+    if (inflateInit2(&z.stream, 16 + MAX_WBITS) == Z_OK) {
+        if (!process_ZStream_(&z, inflate)) {
+            clear_Block(out);
+        }
+    }
+    inflateEnd(&z.stream);
+    return out;
+    
+}
+
 #endif // HaveZlib

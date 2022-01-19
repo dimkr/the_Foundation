@@ -141,6 +141,7 @@ iBlock *        base64Decode_Block  (const iBlock *);
 
 iBlock *        compressLevel_Block (const iBlock *, int level);
 iBlock *        decompress_Block    (const iBlock *);
+iBlock *        decompressGzip_Block(const iBlock *);
 
 iLocalDef iBlock * compress_Block(const iBlock *d) {
     return compressLevel_Block(d, iBlockDefaultCompressionLevel);
