@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1 - Unreleased
+## 1.1 - 2022-01-20
 * Detect Android as a variant of Linux. Some features like starting child processes are disabled in Android.
 * Block: gzip-compatible decompression.
 * Char: Querying script of a Unicode code point.
