@@ -30,6 +30,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include "the_Foundation/range.h"
 #include "the_Foundation/stdthreads.h"
 
+#if defined (iHaveRegExp)
+#   include "the_Foundation/regexp.h"
+#endif
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <strings.h>
@@ -374,6 +378,46 @@ void replace_String(iString *d, const char *src, const char *dst) {
     }
 }
 
+#if defined (iHaveRegExp)
+int replaceRegExp_String(iString *d, const iRegExp *regexp, const char *replacement,
+                         void (*matchHandler)(void *, const iRegExpMatch *),
+                         void *context) {
+    iRegExpMatch m;
+    iString      result;
+    int          numMatches = 0;
+    const char  *pos        = constBegin_String(d);
+    init_RegExpMatch(&m);
+    init_String(&result);
+    while (matchString_RegExp(regexp, d, &m)) {
+        appendRange_String(&result, (iRangecc){ pos, begin_RegExpMatch(&m) });
+        /* Replace any capture group back-references. */
+        for (const char *ch = replacement; *ch; ch++) {
+            if (*ch == '\\') {
+                ch++;
+                if (*ch == '\\') {
+                    appendCStr_String(&result, "\\");
+                }
+                else if (*ch >= '0' && *ch <= '9') {
+                    appendRange_String(&result, capturedRange_RegExpMatch(&m, *ch - '0'));
+                }
+            }
+            else {
+                appendData_Block(&result.chars, ch, 1);
+            }
+        }
+        if (matchHandler) {
+            matchHandler(context, &m);
+        }
+        pos = end_RegExpMatch(&m);
+        numMatches++;
+    }
+    appendRange_String(&result, (iRangecc){ pos, constEnd_String(d) });
+    set_String(d, &result);
+    deinit_String(&result);
+    return numMatches;
+}
+#endif
+
 void normalize_String(iString *d) {
     size_t len = 0;
     uint8_t *nfc =
@@ -498,7 +542,7 @@ iString *urlEncode_String(const iString *d) {
 }
 
 iString *maybeUrlEncodeExclude_String(const iString *d, const char *excluded) {
-    /* TODO: Return NULL if nothing to encode. */    
+    /* TODO: Return NULL if nothing to encode. */
     iString *encoded = new_String();
     /* Note: Any UTF-8 code points are encoded as multiple %NN sequences. */
     for (const char *i = constBegin_String(d), *end = constEnd_String(d); i != end; ++i) {
@@ -514,7 +558,7 @@ iString *maybeUrlEncodeExclude_String(const iString *d, const char *excluded) {
             appendCStrN_String(encoded, escaped, 3);
         }
     }
-    return encoded;    
+    return encoded;
 }
 
 static int fromHex_(char ch) {
@@ -547,7 +591,7 @@ iString *maybeUrlDecodeExclude_String(const iString *d, const char *excluded) {
         }
         appendData_Block(&decoded->chars, i, 1);
     }
-    return decoded;    
+    return decoded;
 }
 
 iString *urlDecodeExclude_String(const iString *d, const char *excluded) {

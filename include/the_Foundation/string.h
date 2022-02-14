@@ -85,6 +85,10 @@ iDeclareType(StringList)
 iDeclareType(StringComparison)
 iDeclareType(MultibyteChar)
 iDeclareType(Stream)
+#if defined (iHaveRegExp)
+    iDeclareType(RegExp)
+    iDeclareType(RegExpMatch)
+#endif
 
 struct Impl_StringComparison {
     int     (*cmp)      (const char *, const char *);
@@ -263,6 +267,28 @@ void            trim_String         (iString *);
 iString *       trimmed_String      (const iString *);
 void            replace_String      (iString *, const char *src, const char *dst);
 void            normalize_String    (iString *); /* NFC */
+
+#if defined (iHaveRegExp)
+/**
+ * Replace all matches of a regular expression in the string.
+ *
+ * @param regexp        Regular expression to search for.
+ * @param replacement   String to substitute at each match. Use the `\1` syntax to refer
+ *                      to a capture group. `\0` refers to the entire match.
+ *                      Backslashes must be escaped: `\\`. Must not be NULL.
+ * @param matchHandler  In addition to replacing with @a replacement, call this callback
+ *                      for each match. Do not modify the String in the callback.
+ *                      Can be NULL.
+ * @param context       User-provided pointer to pass as the first argument of
+ *                      @a matchHandler
+ *
+ * @return Number of replaced matches.
+ */
+int             replaceRegExp_String    (iString *, const iRegExp *regexp,
+                                         const char *replacement,
+                                         void (*matchHandler)(void *, const iRegExpMatch *),
+                                         void *context);
+#endif
 
 int             toInt_String    (const iString *);
 float           toFloat_String  (const iString *);
