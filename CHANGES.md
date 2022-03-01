@@ -2,6 +2,8 @@
 
 ## 1.2 - Unreleased
 * String: Added replacing/substituting with a regular expression.
+* TlsCertificate: Fixed copying of X509 chains.
+* TlsRequest: Added a session cache to avoid repeat handshakes.
 
 ## 1.1 - 2022-01-20
 * Detect Android as a variant of Linux. Some features like starting child processes are disabled in Android.
