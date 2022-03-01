@@ -159,6 +159,7 @@ const iBlock *key_BlockHashIterator(iBlockHashIterator *d) {
 }
 
 void remove_BlockHashIterator(iBlockHashIterator *d) {
+    iAssert(d->blockHash->nodeClass);
     delete_Class(d->blockHash->nodeClass, remove_HashIterator(&d->iter));
 }
 
