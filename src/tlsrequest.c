@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include "the_Foundation/tlsrequest.h"
 #include "the_Foundation/buffer.h"
 #include "the_Foundation/socket.h"
+#include "the_Foundation/stringhash.h"
 #include "the_Foundation/thread.h"
 #include "the_Foundation/time.h"
 
@@ -53,12 +54,119 @@ static void initContext_(void);
 static iTlsCertificate *newX509Chain_TlsCertificate_(X509 *cert, STACK_OF(X509) *chain);
 static void certificateVerifyFailed_TlsRequest_(iTlsRequest *, const iTlsCertificate *cert);
 
+static iBool readAllFromBIO_(BIO *bio, iBlock *out) {
+    char buf[DEFAULT_BUF_SIZE];
+    int n;
+    do {
+        n = BIO_read(bio, buf, sizeof(buf));
+        if (n > 0) {
+            appendData_Block(out, buf, n);
+        }
+        else if (!BIO_should_retry(bio)) {
+            return iFalse;
+        }
+    } while (n > 0);
+    return iTrue;
+}
+
+/*----------------------------------------------------------------------------------------------*/
+
+iDeclareClass(CachedSession)
+    
+static const int maxSessionAge_CachedSession_ = 10 * 60; /* seconds */
+    
+struct Impl_CachedSession {
+    iObject          object;
+    iBlock           pemSession;
+    iTime            timestamp;
+    iTlsCertificate *cert; /* not sent if session reused */
+};
+
+static void init_CachedSession(iCachedSession *d, SSL_SESSION *sess, const iTlsCertificate *cert) {
+    BIO *buf = BIO_new(BIO_s_mem());
+    PEM_write_bio_SSL_SESSION(buf, sess);
+    init_Block(&d->pemSession, 0);
+    readAllFromBIO_(buf, &d->pemSession);
+    BIO_free(buf);
+    initCurrent_Time(&d->timestamp);
+    d->cert = copy_TlsCertificate(cert);
+}
+
+static void deinit_CachedSession(iCachedSession *d) {
+    deinit_Block(&d->pemSession);
+    delete_TlsCertificate(d->cert);
+}
+
+iDefineClass(CachedSession)
+iDefineObjectConstructionArgs(CachedSession,
+                              (SSL_SESSION *sess, const iTlsCertificate *cert),
+                              sess, cert)
+
+static void reuse_CachedSession(const iCachedSession *d, SSL *ssl) {
+    BIO *buf = BIO_new_mem_buf(constData_Block(&d->pemSession), size_Block(&d->pemSession));
+    SSL_SESSION *sess = NULL;
+    PEM_read_bio_SSL_SESSION(buf, &sess, NULL, NULL);
+    SSL_SESSION_up_ref(sess);
+    SSL_set_session(ssl, sess);
+    BIO_free(buf);
+    SSL_SESSION_free(sess);
+}
+
 struct Impl_Context {
     SSL_CTX *             ctx;
     X509_STORE *          certStore;
     iTlsRequestVerifyFunc userVerifyFunc;
     tss_t                 tssKeyCurrentRequest;
+    iMutex                cacheMutex;
+    iStringHash *         cache; /* key is "address:port"; these could be saved persistently */
 };
+
+static iString *cacheKey_(const iString *host, uint16_t port) {
+    iString *key = copy_String(host);
+    appendFormat_String(key, ":%u", port);
+    return key;
+}
+
+static iBool isExpired_CachedSession_(const iCachedSession *d) {
+    if (!d) return iTrue;
+    return elapsedSeconds_Time(&d->timestamp) > maxSessionAge_CachedSession_;
+}
+
+static iTlsCertificate *maybeReuseSession_Context_(iContext *d, SSL *ssl, const iString *host,
+                                                   uint16_t port) {
+    iTlsCertificate *cert = NULL;
+    iString *key = cacheKey_(host, port);
+    lock_Mutex(&d->cacheMutex);
+    /* Remove old entries from the session cache. */
+    iForEach(StringHash, i, d->cache) {
+        iCachedSession *cs = i.value->object;
+        if (isExpired_CachedSession_(cs)) {
+            iDebug("[TlsRequest] session for `%s` has expired\n", cstr_Block(&i.value->keyBlock));
+            remove_StringHashIterator(&i);
+        }
+    }
+    iCachedSession *cs = value_StringHash(d->cache, key);
+    if (cs) {
+        reuse_CachedSession(cs, ssl);
+        cert = copy_TlsCertificate(cs->cert);
+        iDebug("[TlsRequest] reusing session for `%s`\n", cstr_String(key));
+    }
+    unlock_Mutex(&d->cacheMutex);
+    delete_String(key);
+    return cert; /* caller gets ownership */
+}
+
+static void saveSession_Context_(iContext *d, const iString *host, uint16_t port,
+                                 SSL_SESSION *sess, const iTlsCertificate *cert) {
+    if (sess && cert) {
+        iString *key = cacheKey_(host, port);
+        lock_Mutex(&d->cacheMutex);
+        insert_StringHash(d->cache, key, new_CachedSession(sess, cert));
+        unlock_Mutex(&d->cacheMutex);
+        iDebug("[TlsRequest] saved session for `%s`\n", cstr_String(key));
+        delete_String(key);
+    }
+}
 
 static iTlsRequest *currentRequestForThread_Context_(iContext *d) {
     return tss_get(context_->tssKeyCurrentRequest);
@@ -118,17 +226,22 @@ void init_Context(iContext *d) {
     ERR_load_BIO_strings();
     d->ctx = SSL_CTX_new(TLS_client_method());
     if (!d->ctx) {
-        iDebug("[TlsRequest] Failed to initialize OpenSSL\n");
+        iDebug("[TlsRequest] failed to initialize OpenSSL\n");
         iAssert(d->ctx);
     }
+    d->certStore = NULL;
     d->userVerifyFunc = NULL;
     SSL_CTX_set_verify(d->ctx, SSL_VERIFY_PEER, verifyCallback_Context_);
     /* Bug workarounds: https://www.openssl.org/docs/manmaster/man3/SSL_CTX_set_options.html */
     SSL_CTX_set_options(d->ctx, SSL_OP_ALL);
-    d->certStore = NULL;
+    init_Mutex(&d->cacheMutex);
+    d->cache = new_StringHash();
+    SSL_CTX_set_session_cache_mode(d->ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
 }
 
 void deinit_Context(iContext *d) {
+    iRelease(d->cache);
+    deinit_Mutex(&d->cacheMutex);
     SSL_CTX_free(d->ctx);
     tss_delete(d->tssKeyCurrentRequest);
 }
@@ -136,6 +249,8 @@ void deinit_Context(iContext *d) {
 iBool isValid_Context(iContext *d) {
     return d->ctx != NULL;
 }
+
+/*----------------------------------------------------------------------------------------------*/
 
 void setCACertificates_TlsRequest(const iString *caFile, const iString *caPath) {
     initContext_();
@@ -172,21 +287,6 @@ static void initContext_(void) {
     }
 }
 
-static iBool readAllFromBIO_(BIO *bio, iBlock *out) {
-    char buf[DEFAULT_BUF_SIZE];
-    int n;
-    do {
-        n = BIO_read(bio, buf, sizeof(buf));
-        if (n > 0) {
-            appendData_Block(out, buf, n);
-        }
-        else if (!BIO_should_retry(bio)) {
-            return iFalse;
-        }
-    } while (n > 0);
-    return iTrue;
-}
-
 /*----------------------------------------------------------------------------------------------*/
 
 struct Impl_TlsCertificate {
@@ -203,12 +303,19 @@ void init_TlsCertificate(iTlsCertificate *d) {
     d->pkey  = NULL;
 }
 
+static void freeX509Chain_(STACK_OF(X509) *chain) {
+    for (int i = 0; i < sk_X509_num(chain); i++) {
+        X509_free(sk_X509_value(chain, i));
+    }
+    sk_X509_free(chain);
+}
+
 void deinit_TlsCertificate(iTlsCertificate *d) {
     if (d->cert) {
         X509_free(d->cert);
     }
     if (d->chain) {
-        sk_X509_free(d->chain);
+        freeX509Chain_(d->chain);
     }
     if (d->pkey) {
         EVP_PKEY_free(d->pkey);
@@ -355,7 +462,7 @@ iTlsCertificate *copy_TlsCertificate(const iTlsCertificate *d) {
         X509_up_ref(d->cert);
         copy->cert = d->cert;
     }
-    copy->chain = d->chain ? sk_X509_dup(d->chain) : NULL;
+    copy->chain = d->chain ? X509_chain_up_ref(d->chain) : NULL;
     if (d->pkey) {
         EVP_PKEY_up_ref(d->pkey);
         copy->pkey = d->pkey;
@@ -796,9 +903,9 @@ static int processIncoming_TlsRequest_(iTlsRequest *d, const char *src, size_t l
             }
         }
         if (!d->cert) {
-            const STACK_OF(X509) *chain = SSL_get_peer_cert_chain(d->ssl);
+            STACK_OF(X509) *chain = SSL_get_peer_cert_chain(d->ssl);
             d->cert = newX509Chain_TlsCertificate_(SSL_get_peer_certificate(d->ssl),
-                                                   sk_X509_dup(chain));
+                                                   X509_chain_up_ref(chain));
         }
         /* The encrypted data is now in the input bio so now we can perform actual
            read of unencrypted data. */
@@ -881,6 +988,9 @@ static iThreadResult run_TlsRequest_(iThread *thread) {
             }
         }
     }
+    if (!SSL_session_reused(d->ssl) && d->status != error_TlsRequestStatus) {
+        saveSession_Context_(context_, d->hostName, d->port, SSL_get0_session(d->ssl), d->cert);
+    }
     readIncoming_TlsRequest_(d);
     iNotifyAudience(d, finished, TlsRequestFinished);
     iDebug("[TlsRequest] finished\n");
@@ -941,6 +1051,7 @@ void submit_TlsRequest(iTlsRequest *d) {
         SSL_use_certificate(d->ssl, d->clientCert->cert);
         SSL_use_PrivateKey(d->ssl, d->clientCert->pkey);
     }
+    d->cert = maybeReuseSession_Context_(context_, d->ssl, d->hostName, d->port);
     d->socket = new_Socket(cstr_String(d->hostName), d->port);
     iConnect(Socket, d->socket, connected, d, connected_TlsRequest_);
     iConnect(Socket, d->socket, disconnected, d, disconnected_TlsRequest_);
