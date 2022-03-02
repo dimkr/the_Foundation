@@ -80,6 +80,7 @@ struct Impl_CachedSession {
     iBlock           pemSession;
     iTime            timestamp;
     iTlsCertificate *cert; /* not sent if session reused */
+    iBlock           clientHash;
 };
 
 static void init_CachedSession(iCachedSession *d, SSL_SESSION *sess, const iTlsCertificate *cert) {
@@ -90,11 +91,19 @@ static void init_CachedSession(iCachedSession *d, SSL_SESSION *sess, const iTlsC
     BIO_free(buf);
     initCurrent_Time(&d->timestamp);
     d->cert = copy_TlsCertificate(cert);
+    init_Block(&d->clientHash, 0);
 }
 
 static void deinit_CachedSession(iCachedSession *d) {
+    deinit_Block(&d->clientHash);
     deinit_Block(&d->pemSession);
     delete_TlsCertificate(d->cert);
+}
+
+static void setClientCertificate_CachedSession_(iCachedSession *d, const iTlsCertificate *clientCert) {
+    iBlock *fp = fingerprint_TlsCertificate(clientCert);
+    set_Block(&d->clientHash, fp);
+    delete_Block(fp);
 }
 
 iDefineClass(CachedSession)
@@ -133,8 +142,9 @@ static iBool isExpired_CachedSession_(const iCachedSession *d) {
 }
 
 static iTlsCertificate *maybeReuseSession_Context_(iContext *d, SSL *ssl, const iString *host,
-                                                   uint16_t port) {
+                                                   uint16_t port, const iTlsCertificate *clientCert) {
     iTlsCertificate *cert = NULL;
+    iBlock *clientHash = (clientCert ? fingerprint_TlsCertificate(clientCert) : new_Block(0));
     iString *key = cacheKey_(host, port);
     lock_Mutex(&d->cacheMutex);
     /* Remove old entries from the session cache. */
@@ -146,22 +156,28 @@ static iTlsCertificate *maybeReuseSession_Context_(iContext *d, SSL *ssl, const 
         }
     }
     iCachedSession *cs = value_StringHash(d->cache, key);
-    if (cs) {
+    if (cs && cmp_Block(&cs->clientHash, clientHash) == 0) {
         reuse_CachedSession(cs, ssl);
         cert = copy_TlsCertificate(cs->cert);
         iDebug("[TlsRequest] reusing session for `%s`\n", cstr_String(key));
     }
     unlock_Mutex(&d->cacheMutex);
     delete_String(key);
+    delete_Block(clientHash);
     return cert; /* caller gets ownership */
 }
 
 static void saveSession_Context_(iContext *d, const iString *host, uint16_t port,
-                                 SSL_SESSION *sess, const iTlsCertificate *cert) {
-    if (sess && cert) {
+                                 SSL_SESSION *sess, const iTlsCertificate *serverCert,
+                                 const iTlsCertificate *clientCert) {
+    if (sess && serverCert) {
         iString *key = cacheKey_(host, port);
         lock_Mutex(&d->cacheMutex);
-        insert_StringHash(d->cache, key, new_CachedSession(sess, cert));
+        iCachedSession *cs = new_CachedSession(sess, serverCert);
+        if (clientCert) {
+            setClientCertificate_CachedSession_(cs, clientCert);
+        }
+        insert_StringHash(d->cache, key, cs);
         unlock_Mutex(&d->cacheMutex);
         iDebug("[TlsRequest] saved session for `%s`\n", cstr_String(key));
         delete_String(key);
@@ -989,7 +1005,8 @@ static iThreadResult run_TlsRequest_(iThread *thread) {
         }
     }
     if (!SSL_session_reused(d->ssl) && d->status != error_TlsRequestStatus) {
-        saveSession_Context_(context_, d->hostName, d->port, SSL_get0_session(d->ssl), d->cert);
+        saveSession_Context_(
+            context_, d->hostName, d->port, SSL_get0_session(d->ssl), d->cert, d->clientCert);
     }
     readIncoming_TlsRequest_(d);
     iNotifyAudience(d, finished, TlsRequestFinished);
@@ -1051,7 +1068,7 @@ void submit_TlsRequest(iTlsRequest *d) {
         SSL_use_certificate(d->ssl, d->clientCert->cert);
         SSL_use_PrivateKey(d->ssl, d->clientCert->pkey);
     }
-    d->cert = maybeReuseSession_Context_(context_, d->ssl, d->hostName, d->port);
+    d->cert = maybeReuseSession_Context_(context_, d->ssl, d->hostName, d->port, d->clientCert);
     d->socket = new_Socket(cstr_String(d->hostName), d->port);
     iConnect(Socket, d->socket, connected, d, connected_TlsRequest_);
     iConnect(Socket, d->socket, disconnected, d, disconnected_TlsRequest_);
