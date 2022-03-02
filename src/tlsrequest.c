@@ -156,7 +156,8 @@ static iTlsCertificate *maybeReuseSession_Context_(iContext *d, SSL *ssl, const 
         }
     }
     iCachedSession *cs = value_StringHash(d->cache, key);
-    if (cs && cmp_Block(&cs->clientHash, clientHash) == 0) {
+    if (cs && (size_Block(&cs->clientHash) == size_Block(clientHash) &&
+               cmp_Block(&cs->clientHash, clientHash) == 0)) {
         reuse_CachedSession(cs, ssl);
         cert = copy_TlsCertificate(cs->cert);
         iDebug("[TlsRequest] reusing session for `%s`\n", cstr_String(key));
