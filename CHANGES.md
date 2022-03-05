@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3 - Unreleased
+* String: Upper/lower-casing in a specific language.
+
 ## 1.2 - 2022-03-05
 * String: Added replacing/substituting with a regular expression.
 * TlsCertificate: Fixed copying of X509 chains.
