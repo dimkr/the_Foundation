@@ -484,10 +484,14 @@ iString *mid_String(const iString *d, size_t charStartPos, size_t charCount) {
 }
 
 iString *upper_String(const iString *d) {
+    return upperLang_String(d, currentLocaleLanguage_());
+}
+    
+iString *upperLang_String(const iString *d, const char *langCode) {
     size_t len = 0;
     uint8_t *str = u8_toupper((const uint8_t *) cstr_String(d),
                               size_String(d),
-                              currentLocaleLanguage_(),
+                              langCode,
                               NULL,
                               NULL,
                               &len);
@@ -506,10 +510,14 @@ iString *upper_String(const iString *d) {
 }
 
 iString *lower_String(const iString *d) {
+    return lowerLang_String(d, currentLocaleLanguage_());
+}
+
+iString *lowerLang_String(const iString *d, const char *langCode) {
     size_t len = 0;
     uint8_t *str = u8_tolower((const uint8_t *) cstr_String(d),
                               size_String(d),
-                              currentLocaleLanguage_(),
+                              langCode,
                               NULL,
                               NULL,
                               &len);
