@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2 - Unreleased
+## 1.2 - 2022-03-05
 * String: Added replacing/substituting with a regular expression.
 * TlsCertificate: Fixed copying of X509 chains.
 * TlsRequest: Added a session cache to avoid repeat handshakes.
