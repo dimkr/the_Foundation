@@ -708,6 +708,7 @@ struct Impl_TlsRequest {
     volatile enum iTlsRequestStatus status;
     iString *        errorMsg;
     iThread *        thread;
+    iBool            sessionCacheEnabled;
     iBool            notifyReady;
     size_t           totalBytesToSend;
     size_t           totalBytesSent;
@@ -836,6 +837,7 @@ void init_TlsRequest(iTlsRequest *d) {
     d->cert = NULL;
     d->errorMsg = new_String();
     d->status = initialized_TlsRequestStatus;
+    d->sessionCacheEnabled = iTrue;
     d->thread = NULL;
     d->notifyReady = iFalse;
     d->totalBytesToSend = 0;
@@ -893,6 +895,10 @@ void setContent_TlsRequest(iTlsRequest *d, const iBlock *content) {
 
 void setCertificate_TlsRequest(iTlsRequest *d, const iTlsCertificate *cert) {
     d->clientCert = cert;
+}
+
+void setSessionCacheEnabled_TlsRequest(iTlsRequest *d, iBool enabled) {
+    d->sessionCacheEnabled = enabled;
 }
 
 static void appendReceived_TlsRequest_(iTlsRequest *d, const char *buf, size_t len) {
@@ -1078,7 +1084,9 @@ void submit_TlsRequest(iTlsRequest *d) {
         SSL_use_certificate(d->ssl, d->clientCert->cert);
         SSL_use_PrivateKey(d->ssl, d->clientCert->pkey);
     }
-    d->cert = maybeReuseSession_Context_(context_, d->ssl, d->hostName, d->port, d->clientCert);
+    if (d->sessionCacheEnabled) {
+        d->cert = maybeReuseSession_Context_(context_, d->ssl, d->hostName, d->port, d->clientCert);
+    }
     d->socket = new_Socket(cstr_String(d->hostName), d->port);
     iConnect(Socket, d->socket, connected, d, connected_TlsRequest_);
     iConnect(Socket, d->socket, disconnected, d, disconnected_TlsRequest_);
