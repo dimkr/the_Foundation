@@ -2,6 +2,11 @@
 
 ## 1.3 - Unreleased
 * String: Upper/lower-casing in a specific language.
+* TlsCertificate: Avoid repeated verification of the same certificate.
+* TlsRequest: TLS session cache can be disabled per request.
+
+## 1.2.1
+* SOVERSION includes the minor version, since new symbols may be added in minor releases.
 
 ## 1.2 - 2022-03-05
 * String: Added replacing/substituting with a regular expression.
