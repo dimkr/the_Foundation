@@ -72,7 +72,8 @@ struct Impl_TlsCertificateName {
 };
 
 enum iTlsCertificateVerifyStatus {
-    unverified_TlsCertificateVerifyStatus,
+    unknown_TlsCertificateVerifyStatus = -1,
+    unverified_TlsCertificateVerifyStatus = 0,
     selfSigned_TlsCertificateVerifyStatus,
     authority_TlsCertificateVerifyStatus,
 };

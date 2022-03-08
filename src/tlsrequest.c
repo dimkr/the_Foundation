@@ -310,6 +310,7 @@ struct Impl_TlsCertificate {
     X509 *cert;
     STACK_OF(X509) *chain;
     EVP_PKEY *pkey;
+    enum iTlsCertificateVerifyStatus *cachedVerifyStatus; /* TODO: include domain/IP check, too? */
 };
 
 iDefineTypeConstruction(TlsCertificate)
@@ -318,6 +319,8 @@ void init_TlsCertificate(iTlsCertificate *d) {
     d->cert  = NULL;
     d->chain = NULL;
     d->pkey  = NULL;
+    d->cachedVerifyStatus = malloc(sizeof(*d->cachedVerifyStatus));
+    *d->cachedVerifyStatus = unknown_TlsCertificateVerifyStatus;
 }
 
 static void freeX509Chain_(STACK_OF(X509) *chain) {
@@ -328,6 +331,7 @@ static void freeX509Chain_(STACK_OF(X509) *chain) {
 }
 
 void deinit_TlsCertificate(iTlsCertificate *d) {
+    free(d->cachedVerifyStatus);
     if (d->cert) {
         X509_free(d->cert);
     }
@@ -484,6 +488,7 @@ iTlsCertificate *copy_TlsCertificate(const iTlsCertificate *d) {
         EVP_PKEY_up_ref(d->pkey);
         copy->pkey = d->pkey;
     }
+    *copy->cachedVerifyStatus = *d->cachedVerifyStatus;
     return copy;
 }
 
@@ -543,6 +548,9 @@ iBool isExpired_TlsCertificate(const iTlsCertificate *d) {
 }
 
 enum iTlsCertificateVerifyStatus verify_TlsCertificate(const iTlsCertificate *d) {
+    if (*d->cachedVerifyStatus != unknown_TlsCertificateVerifyStatus) {
+        return *d->cachedVerifyStatus;
+    }
     enum iTlsCertificateVerifyStatus status = unverified_TlsCertificateVerifyStatus;
     if (!d->cert) {
         return status;
@@ -562,6 +570,7 @@ enum iTlsCertificateVerifyStatus verify_TlsCertificate(const iTlsCertificate *d)
            X509_verify_cert_error_string(err),
            err);
     X509_STORE_CTX_free(store);
+    *d->cachedVerifyStatus = status;
     return status;
 }
 
