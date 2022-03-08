@@ -329,7 +329,7 @@ write_basic_package_version_file (
 )
 set_target_properties (${TFDN_LIB} PROPERTIES
     VERSION   ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
+    SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
 )
 if (iPlatformMsys)
     set_target_properties (${TFDN_LIB} PROPERTIES
