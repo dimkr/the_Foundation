@@ -83,6 +83,10 @@ static void init_DOSTime_(iDOSTime *d, uint16_t packed) {
     d->hours   = packed >> 11;
 }
 
+static uint16_t packed_DOSTime_(const iDOSTime *d) {
+    return ((d->seconds / 2) & 0x1f) | ((d->minutes & 0x3f) << 5) | (d->hours << 11);
+}
+
 /* MS-DOS date:
    - 0..4:  Day of the month (1-31)
    - 5..8:  Month (1=Jan)
@@ -98,6 +102,10 @@ static void init_DOSDate_(iDOSDate *d, uint16_t packed) {
     d->dayOfMonth = packed & 0x1f;
     d->month      = (packed >> 5) & 0xf;
     d->year       = packed >> 9;
+}
+
+static uint16_t packed_DOSDate_(const iDOSDate *d) {
+    return (d->dayOfMonth & 0x1f) | ((d->month & 0xf) << 5) | (d->year << 9);
 }
 
 struct Impl_LocalFileHeader {
@@ -126,6 +134,20 @@ static void read_LocalFileHeader_(iLocalFileHeader *d, iStream *stream) {
     d->size            = readU32_Stream(stream);
     d->fileNameSize    = readU16_Stream(stream);
     d->extraFieldSize  = readU16_Stream(stream);
+}
+
+static void write_LocalFileHeader_(const iLocalFileHeader *d, iStream *stream) {
+    writeU32_Stream(stream, d->signature);
+    writeU16_Stream(stream, d->requiredVersion);
+    writeU16_Stream(stream, d->flags);
+    writeU16_Stream(stream, d->compression);
+    writeU16_Stream(stream, d->lastModTime);
+    writeU16_Stream(stream, d->lastModDate);
+    writeU32_Stream(stream, d->crc32);
+    writeU32_Stream(stream, d->compressedSize);
+    writeU32_Stream(stream, d->size);
+    writeU16_Stream(stream, d->fileNameSize);
+    writeU16_Stream(stream, d->extraFieldSize);
 }
 
 struct Impl_CentralFileHeader {
@@ -173,6 +195,26 @@ static void read_CentralFileHeader_(iCentralFileHeader *d, iStream *stream) {
     d->relOffset       = readU32_Stream(stream);
 }
 
+static void write_CentralFileHeader_(const iCentralFileHeader *d, iStream *stream) {
+    writeU32_Stream(stream, d->signature);
+    writeU16_Stream(stream, d->version);
+    writeU16_Stream(stream, d->requiredVersion);
+    writeU16_Stream(stream, d->flags);
+    writeU16_Stream(stream, d->compression);
+    writeU16_Stream(stream, d->lastModTime);
+    writeU16_Stream(stream, d->lastModDate);
+    writeU32_Stream(stream, d->crc32);
+    writeU32_Stream(stream, d->compressedSize);
+    writeU32_Stream(stream, d->size);
+    writeU16_Stream(stream, d->fileNameSize);
+    writeU16_Stream(stream, d->extraFieldSize);
+    writeU16_Stream(stream, d->commentSize);
+    writeU16_Stream(stream, d->diskStart);
+    writeU16_Stream(stream, d->internalAttrib);
+    writeU32_Stream(stream, d->externalAttrib);
+    writeU32_Stream(stream, d->relOffset);
+}
+
 struct Impl_CentralEnd {
     uint16_t disk;
     uint16_t centralStartDisk;
@@ -191,6 +233,16 @@ static void read_CentralEnd_(iCentralEnd *d, iStream *stream) {
     d->size             = readU32_Stream(stream);
     d->offset           = readU32_Stream(stream);
     d->commentSize      = readU16_Stream(stream);
+}
+
+static void write_CentralEnd_(const iCentralEnd *d, iStream *stream) {
+    writeU16_Stream(stream, d->disk);
+    writeU16_Stream(stream, d->centralStartDisk);
+    writeU16_Stream(stream, d->diskEntryCount);
+    writeU16_Stream(stream, d->totalEntryCount);
+    writeU32_Stream(stream, d->size);
+    writeU32_Stream(stream, d->offset);
+    writeU16_Stream(stream, d->commentSize);
 }
 
 static iBool seekToCentralEnd_(iStream *stream) {
@@ -236,6 +288,7 @@ struct Impl_Archive {
     iObject       object;
     iFile *       sourceFile;
     iBuffer *     sourceBuffer;
+    iBool         isWritable;
     iSortedArray *entries; /* sorted by path */
 };
 
@@ -349,6 +402,24 @@ static size_t findPath_Archive_(const iArchive *d, const iString *path) {
     return pos;
 }
 
+static size_t findOrAddEntry_Archive_(iArchive *d, const iString *path) {
+    iAssert(d->isWritable);
+    iArchiveEntry entry;
+    iZap(entry);
+    initCopy_String(&entry.path, path);
+    replace_String(&entry.path, "\\", "/"); /* in case it's a Windows-style path */
+    if (!contains_SortedArray(d->entries, &entry)) {
+        iArchiveEntry newEntry;
+        init_ArchiveEntry(&newEntry);
+        set_String(&newEntry.path, &entry.path);
+        insert_SortedArray(d->entries, &newEntry);
+    }
+    size_t pos;
+    locate_SortedArray(d->entries, &entry, &pos);
+    deinit_String(&entry.path);
+    return pos;
+}
+
 static iArchiveEntry *loadEntry_Archive_(const iArchive *d, size_t index) {
     iArchiveEntry *entry = at_SortedArray(d->entries, index);
     if (!entry->data || size_Block(entry->data) != entry->size) {
@@ -380,6 +451,7 @@ static iArchiveEntry *loadEntry_Archive_(const iArchive *d, size_t index) {
 void init_Archive(iArchive *d) {
     d->sourceFile   = NULL;
     d->sourceBuffer = NULL;
+    d->isWritable   = iFalse;
     d->entries      = new_SortedArray(sizeof(iArchiveEntry), cmp_ArchiveEntry_);
 }
 
@@ -405,6 +477,11 @@ iBool openFile_Archive(iArchive *d, const iString *path) {
     return readDirectory_Archive_(d);
 }
 
+void openWritable_Archive(iArchive *d) {
+    close_Archive(d);
+    d->isWritable = iTrue;
+}
+
 void close_Archive(iArchive *d) {
     iForEach(Array, i, &d->entries->values) {
         deinit_ArchiveEntry(i.value);
@@ -412,10 +489,11 @@ void close_Archive(iArchive *d) {
     clear_SortedArray(d->entries);
     iReleasePtr(&d->sourceBuffer);
     iReleasePtr(&d->sourceFile);
+    d->isWritable = iFalse;
 }
 
 iBool isOpen_Archive(const iArchive *d) {
-    return d && source_Archive_(d) != NULL;
+    return d && (d->isWritable || source_Archive_(d) != NULL);
 }
 
 size_t numEntries_Archive(const iArchive *d) {
@@ -423,7 +501,7 @@ size_t numEntries_Archive(const iArchive *d) {
 }
 
 size_t sourceSize_Archive(const iArchive *d) {
-    if (isOpen_Archive(d)) {
+    if (source_Archive_(d)) {
         return size_Stream(source_Archive_(d));
     }
     return 0;
@@ -499,6 +577,14 @@ const iArchiveEntry *entryAt_Archive(const iArchive *d, size_t index) {
     return constAt_SortedArray(d->entries, index);
 }
 
+static iArchiveEntry *writableEntryAt_Archive_(iArchive *d, size_t index) {
+    iAssert(d->isWritable);
+    if (index >= size_SortedArray(d->entries)) {
+        return NULL;
+    }
+    return at_SortedArray(d->entries, index);
+}
+
 const iArchiveEntry *entry_Archive(const iArchive *d, const iString *path) {
     return entryAt_Archive(d, findPath_Archive_(d, path));
 }
@@ -520,6 +606,94 @@ const iBlock *data_Archive(const iArchive *d, const iString *path) {
 
 const iBlock *dataCStr_Archive(const iArchive *d, const char *pathCStr) {
     return data_Archive(d, &iStringLiteral(pathCStr)); /* string used for lookup; not retained */
+}
+
+void setData_Archive(iArchive *d, const iString *path, const iBlock *data) {
+    if (d->isWritable) {
+        iArchiveEntry *entry = writableEntryAt_Archive_(d, findOrAddEntry_Archive_(d, path));
+        initCurrent_Time(&entry->timestamp);
+        if (!entry->data) {
+            entry->data = copy_Block(data);
+        }
+        else {
+            set_Block(entry->data, data);
+        }
+        entry->crc32 = crc32_Block(data);
+        entry->size  = size_Block(data);
+        /* The data is compressed when the Archive is serialized. */
+    }
+}
+
+void serialize_Archive(const iArchive *d, iStream *out) {
+    /* Structure:       
+            LocalFileHeader + fileName + data, ...
+            CentralFileHeader + fileName, ...
+            CentralEnd */    
+    const size_t numEntries = size_SortedArray(d->entries);
+    iArray centralDir;
+    init_Array(&centralDir, sizeof(iCentralFileHeader));
+    resize_Array(&centralDir, numEntries);
+    iConstForEach(Array, i, &d->entries->values) {
+        const iArchiveEntry *entry = i.value;
+        iLocalFileHeader local;
+        iDate ts;
+        init_Date(&ts, &entry->timestamp);
+        iZap(local);
+        local.signature   = SIG_LOCAL_FILE_HEADER;
+        local.crc32       = entry->crc32;
+        local.size        = entry->size;
+        local.lastModDate = packed_DOSDate_(&(iDOSDate){ .dayOfMonth = ts.day,
+                                                         .month      = ts.month,
+                                                         .year       = ts.year - 1980 });
+        local.lastModTime = packed_DOSTime_(&(iDOSTime){ .hours      = ts.hour,
+                                                         .minutes    = ts.minute,
+                                                         .seconds    = ts.second });
+        local.fileNameSize = size_String(&entry->path);
+        iAssert(entry->data);
+        iBlock *comp = compress_Block(entry->data);
+        if (size_Block(comp) < entry->size) {
+            local.compression = deflated_Compression;
+            local.compressedSize = size_Block(comp);
+        }
+        else {
+            local.compression = none_Compression;
+            local.compressedSize = entry->size;
+            set_Block(comp, entry->data);
+        }
+        /* Also prepare the central file header with the same information. */
+        iCentralFileHeader *central = at_Array(&centralDir, index_ArrayConstIterator(&i));
+        iZap(*central);
+        central->signature = SIG_CENTRAL_FILE_HEADER;
+        central->compressedSize = local.compressedSize;
+        central->compression = local.compression;
+        central->crc32 = local.crc32;
+        central->fileNameSize = local.fileNameSize;
+        central->lastModDate = local.lastModDate;
+        central->lastModTime = local.lastModTime;
+        central->size = local.size;
+        central->relOffset = pos_Stream(out);
+        write_LocalFileHeader_(&local, out);
+        write_Stream(out, utf8_String(&entry->path));
+        write_Stream(out, comp);
+        delete_Block(comp);
+    }
+    const size_t centralStartOffset = pos_Stream(out);
+    iForEach(Array, j, &centralDir) {
+        iCentralFileHeader *central = j.value;
+        const iArchiveEntry *entry = constAt_SortedArray(d->entries, index_ArrayIterator(&j));
+        write_CentralFileHeader_(central, out);
+        write_Stream(out, utf8_String(&entry->path));
+    }
+    writeU32_Stream(out, SIG_END_OF_CENTRAL_DIR);
+    write_CentralEnd_(
+        &(iCentralEnd){
+            .diskEntryCount  = numEntries,
+            .totalEntryCount = numEntries,
+            .size            = pos_Stream(out) - centralStartOffset - 4,
+            .offset          = centralStartOffset,
+        },
+        out);
+    deinit_Array(&centralDir);
 }
 
 /*----------------------------------------------------------------------------------------------*/
