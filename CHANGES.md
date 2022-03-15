@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.3 - Unreleased
+* Archive: Opening as writable, serializing with compression.
 * String: Upper/lower-casing in a specific language.
 * TlsCertificate: Avoid repeated verification of the same certificate.
 * TlsRequest: TLS session cache can be disabled per request.
