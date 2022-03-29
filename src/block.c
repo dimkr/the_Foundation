@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include <stdarg.h>
 #include <strings.h>
 #include <uniconv.h>
+#include <unistdio.h>
 #if defined (iHaveZlib)
 #   include <zlib.h>
 #endif
@@ -316,9 +317,19 @@ void vprintf_Block(iBlock *d, const char *format, va_list args) {
     va_list args2;
     va_copy(args2, args);
     const int len = vsnprintf(NULL, 0, format, args);
-    reserve_Block(d, len);
-    vsprintf(d->i->data, format, args2);
-    d->i->size = len;
+    if (len < 0) {
+        /* Encoding error? Possibly the implementation frowns upon UTF-8. This seems to occur
+           on some older 32-bit Android releases at least. */
+        size_t msgLen = 0;
+        uint8_t *msg = u8_u8_vasnprintf(NULL, &msgLen, (const unistring_uint8_t *) format, args);
+        setData_Block(d, msg, msgLen); /* an extra copy */
+        free(msg);
+    }
+    else {
+        reserve_Block(d, len);
+        vsprintf(d->i->data, format, args2);
+        d->i->size = len;
+    }
     va_end(args2);
 }
 
@@ -631,7 +642,6 @@ iBlock *decompressGzip_Block(const iBlock *d) {
     }
     inflateEnd(&z.stream);
     return out;
-    
 }
 
 #endif // HaveZlib
