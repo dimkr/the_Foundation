@@ -624,6 +624,13 @@ void setData_Archive(iArchive *d, const iString *path, const iBlock *data) {
     }
 }
 
+void setDataCStr_Archive(iArchive *d, const char *path, const iBlock *data) {
+    iString pathStr;
+    initCStr_String(&pathStr, path);
+    setData_Archive(d, &pathStr, data);
+    deinit_String(&pathStr);
+}
+
 void serialize_Archive(const iArchive *d, iStream *out) {
     /* Structure:       
             LocalFileHeader + fileName + data, ...

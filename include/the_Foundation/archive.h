@@ -69,6 +69,7 @@ const iBlock *          dataCStr_Archive    (const iArchive *d, const char *path
 const iBlock *          dataAt_Archive      (const iArchive *, size_t index);
 
 void    setData_Archive     (iArchive *, const iString *path, const iBlock *data);
+void    setDataCStr_Archive (iArchive *, const char *path, const iBlock *data);
 void    serialize_Archive   (const iArchive *, iStream *);
 
 /** @name Iterators */
