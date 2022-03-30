@@ -101,6 +101,15 @@ int cmp_Time(const iTime *d, const iTime *other) {
     return iCmp(integralSeconds_Time(d), integralSeconds_Time(other));
 }
 
+void max_Time(iTime *d, const iTime *time) {
+    if (integralSeconds_Time(time) > integralSeconds_Time(d)) {
+        *d = *time;
+    }
+    else if (integralSeconds_Time(time) == integralSeconds_Time(d)) {
+        d->ts.tv_nsec = iMax(d->ts.tv_nsec, time->ts.tv_nsec);                                       
+    }
+}
+
 iString *format_Time(const iTime *d, const char *format) {
     iDate date;
     init_Date(&date, d);

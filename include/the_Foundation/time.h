@@ -81,6 +81,7 @@ iString *   format_Time     (const iTime *, const char *format);
 void    add_Time            (iTime *, const iTime *time);
 void    sub_Time            (iTime *, const iTime *time);
 int     cmp_Time            (const iTime *, const iTime *);
+void    max_Time            (iTime *, const iTime *time);
 
 void    init_Date           (iDate *, const iTime *);
 void    initCurrent_Date    (iDate *);
