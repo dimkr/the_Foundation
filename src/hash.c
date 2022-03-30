@@ -257,9 +257,9 @@ iHashNode *remove_Hash(iHash *d, iHashKey key) {
 void init_HashIterator(iHashIterator *d, iHash *hash) {
     d->hash = hash;
     d->bucket = firstInOrder_HashBucket_(hash->root);
-    d->value = (d->bucket? d->bucket->node : NULL);
+    d->value = (d->bucket ? d->bucket->node : NULL);
     /* The current node may be deleted, so keep the next one in a safe place. */
-    d->next = (d->value? d->value->next : NULL);
+    d->next = (d->value ? d->value->next : NULL);
 }
 
 void next_HashIterator(iHashIterator *d) {
