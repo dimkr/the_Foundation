@@ -321,7 +321,7 @@ void vprintf_Block(iBlock *d, const char *format, va_list args) {
         /* Encoding error? Possibly the implementation frowns upon UTF-8. This seems to occur
            on some older 32-bit Android releases at least. */
         size_t msgLen = 0;
-        uint8_t *msg = u8_u8_vasnprintf(NULL, &msgLen, (const unistring_uint8_t *) format, args);
+        uint8_t *msg = u8_u8_vasnprintf(NULL, &msgLen, (const uint8_t *) format, args);
         setData_Block(d, msg, msgLen); /* an extra copy */
         free(msg);
     }
