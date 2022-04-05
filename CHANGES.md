@@ -1,8 +1,10 @@
 # Changelog
 
-## 1.3 - Unreleased
+## 1.3 - 2022-04-05
 * Archive: Opening as writable, serializing with compression.
+* Block: Handle possible vprintf encoding errors.
 * String: Upper/lower-casing in a specific language.
+* Time: Added `max` method.
 * TlsCertificate: Avoid repeated verification of the same certificate.
 * TlsRequest: TLS session cache can be disabled per request.
 
