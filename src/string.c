@@ -42,6 +42,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include <uniconv.h>
 #include <uninorm.h>
 #include <unistr.h>
+#include <uniwidth.h>
 #include <ctype.h>
 
 #if !defined (iHaveStrnstr)
@@ -89,6 +90,10 @@ iBool isPunct_Char(iChar d) {
 const char *script_Char(iChar d) {
     const uc_script_t *scr = uc_script(d);
     return scr ? scr->name : "";
+}
+
+int width_Char(iChar d) {
+    return uc_width(d, localeCharSet_);
 }
 
 void setLocaleCharSet_String(const char *charSet) {
