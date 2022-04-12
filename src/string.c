@@ -93,6 +93,12 @@ const char *script_Char(iChar d) {
 }
 
 int width_Char(iChar d) {
+#if defined (iPlatformApple)
+    /* macOS has wide Emoji versions of the astrology symbols. */
+    if ((d >= 0x2648 && d <= 0x2653) || d == 0x26ce) {
+        return 2;
+    }
+#endif
     return uc_width(d, localeCharSet_);
 }
 
