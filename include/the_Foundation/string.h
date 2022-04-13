@@ -68,7 +68,9 @@ iLocalDef iBool isDefaultIgnorable_Char(iChar c) {
 }
 iLocalDef iBool isEmoji_Char(iChar c) {
     return (c >= 0x1f300 && c < 0x1f700) || (c >= 0x1f7e0 && c <= 0x1f7eb) ||
-           (c >= 0x1f900 && c <= 0x1f9ff) || (c >= 0x1fa70 && c <= 0x1faff);
+           (c >= 0x1f900 && c <= 0x1f9ff) || (c >= 0x1fa70 && c <= 0x1faff) ||
+           c == 0x2728 || c == 0x270a || c == 0x270b || c == 0x274c || c == 0x274e ||
+           (c >= 0x26f0 && c <= 0x26fa);
 }
 iLocalDef iBool isDingbats_Char(iChar c) {
     return c >= 0x2702 && c <= 0x27b0;

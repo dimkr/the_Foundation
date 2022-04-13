@@ -93,6 +93,9 @@ const char *script_Char(iChar d) {
 }
 
 int width_Char(iChar d) {
+    if (isEmoji_Char(d)) {
+        return 2;
+    }
     return uc_width(d, localeCharSet_);
 }
 
