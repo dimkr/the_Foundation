@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4 - Unreleased
+* Block: Fixed crash when checking size of zero-initialized instance.
+* Char: Added `width` method.
+
 ## 1.3 - 2022-04-05
 * Archive: Opening as writable, serializing with compression.
 * Block: Handle possible vprintf encoding errors.
