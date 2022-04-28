@@ -217,7 +217,7 @@ void deserialize_Block(iBlock *d, iStream *ins) {
 }
 
 size_t size_Block(const iBlock *d) {
-    return d->i->size;
+    return d && d->i ? d->i->size : 0;
 }
 
 char at_Block(const iBlock *d, size_t pos) {
