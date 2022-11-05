@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.1)
 
-project (the_Foundation VERSION 1.4.0 LANGUAGES C)
+project (the_Foundation VERSION 1.5.0 LANGUAGES C)
 set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
 
 include (CheckIncludeFile)
@@ -281,7 +281,7 @@ else ()
         src/file.c
     )
 endif ()
-if (PCRE_FOUND)
+if (PCRE2_FOUND OR PCRE_FOUND)
     set (iHaveRegExp YES)
     list (APPEND SOURCES src/regexp.c)
     list (APPEND HEADERS include/the_Foundation/regexp.h)

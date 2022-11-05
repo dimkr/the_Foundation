@@ -1,8 +1,10 @@
 # Dependencies for the_Foundation
 if (NOT IOS AND NOT ANDROID)
+    # Regular desktop environment. Find dependencies using pkg-config.
     find_package (PkgConfig)
     pkg_check_modules (ZLIB zlib)
-    pkg_check_modules (PCRE libpcre)    # Regular expressions
+    pkg_check_modules (PCRE libpcre)     # Regular expressions
+    pkg_check_modules (PCRE2 libpcre2-8) # this is preferred, if found
     if (TFDN_ENABLE_WEBREQUEST)
         pkg_check_modules (CURL libcurl)
     else ()
@@ -86,6 +88,9 @@ endif ()
 if (PCRE_FOUND)
     set (iHavePcre YES)
 endif ()
+if (PCRE2_FOUND)
+    set (iHavePcre2 YES)
+endif ()
 if (CURL_FOUND)
     set (iHaveCurl YES)
 endif ()
@@ -105,7 +110,9 @@ macro (tfdn_link_depends target mode)
     if (ZLIB_FOUND)
         target_link_libraries (${target} ${mode} ${ZLIB_LIBRARIES})
     endif ()
-    if (PCRE_FOUND)
+    if (PCRE2_FOUND)
+        target_link_libraries (${target} ${mode} ${PCRE2_LIBRARIES})
+    elseif (PCRE_FOUND)
         target_link_libraries (${target} ${mode} ${PCRE_LIBRARIES})
     endif ()
     if (CURL_FOUND)

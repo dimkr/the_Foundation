@@ -48,6 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #cmakedefine iHaveSysDirent
 #cmakedefine iHaveOpenSSL
 #cmakedefine iHavePcre
+#cmakedefine iHavePcre2
 #cmakedefine iHavePThread
 #cmakedefine iHavePThreadCancel
 #cmakedefine iHavePThreadTimedMutex

@@ -498,7 +498,7 @@ int main(int argc, char *argv[]) {
         printf("MD5 hash of \"%s\": ", cstr_String(&test));
         printBytes(md5, 16);
     }
-#if defined (iHavePcre)
+#if defined (iHaveRegExp)
     /* Test regular expressions. */ {
         iString *s = newCStr_String("Hello world Äöäö, there is a \U0001f698 out there.");
         iRegExp *rx = new_RegExp("\\b(THERE|WORLD|äöäö)\\b", caseInsensitive_RegExpOption);

@@ -1,6 +1,9 @@
 # Changelog
 
-## 1.4 - Unreleased
+## 1.5 - Unreleased
+* RegExp: PCRE2 can be used as an alternative to the older PCRE.
+
+## 1.4 - 2022-04-28
 * Block: Fixed crash when checking size of zero-initialized instance.
 * Char: Added `width` method.
 
