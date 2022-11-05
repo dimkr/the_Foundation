@@ -90,13 +90,13 @@ iBool match_RegExp(const iRegExp *d, const char *subject, size_t len, iRegExpMat
                          0, matchData, NULL);
     if (rc > 1) {
         PCRE2_SIZE *output = pcre2_get_ovector_pointer(matchData);
-        uint32_t outputCount = pcre2_get_ovector_count(matchData);
-        for (uint32_t i = 0; i < outputCount && i < iRegExpMaxSubstrings; i++) {
-            match->substring[i].start = output[2 * i];
-            match->substring[i].end   = output[2 * i + 1];
+        uint32_t count = pcre2_get_ovector_count(matchData);
+        iRangei *mrange = &match->range;
+        for (uint32_t i = 0; i < count && i <= iRegExpMaxSubstrings; i++, mrange++) {
+            mrange->start = output[2 * i];
+            mrange->end   = output[2 * i + 1];
         }
-        match->range = match->substring[0];
-        match->pos   = match->range.end;
+        match->pos = match->range.end;
     }
     pcre2_match_data_free(matchData);
     return rc > 1;
