@@ -363,6 +363,11 @@ if (IOS)
 endif ()
 
 # Generate a simple pkgconfig file.
+if (OPENSSL_FOUND)
+    foreach (flg ${OPENSSL_LDFLAGS})
+        set (OPENSSL_PC_LDFLAGS "${OPENSSL_PC_LDFLAGS} ${flg}")
+    endforeach (flg)
+endif ()
 configure_file (
     the_Foundation.pc.in
     ${CMAKE_CURRENT_BINARY_DIR}/the_Foundation.pc
