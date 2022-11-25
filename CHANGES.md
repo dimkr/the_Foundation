@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5 - Unreleased
+## 1.5 - 2022-11-25
 * RegExp: PCRE2 can be used as an alternative to the older PCRE.
 
 ## 1.4 - 2022-04-28
