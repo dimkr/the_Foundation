@@ -2,6 +2,7 @@
 
 ## 1.6 - Unreleased
 * Block: Added a method to encode contents in Base64.
+* TlsRequest: Avoid possible crash when reusing TLS sessions.
 
 ## 1.5 - 2022-11-25
 * RegExp: PCRE2 can be used as an alternative to the older PCRE.
