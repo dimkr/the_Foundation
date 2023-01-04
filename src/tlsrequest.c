@@ -115,10 +115,12 @@ static void reuse_CachedSession(const iCachedSession *d, SSL *ssl) {
     BIO *buf = BIO_new_mem_buf(constData_Block(&d->pemSession), size_Block(&d->pemSession));
     SSL_SESSION *sess = NULL;
     PEM_read_bio_SSL_SESSION(buf, &sess, NULL, NULL);
-    SSL_SESSION_up_ref(sess);
-    SSL_set_session(ssl, sess);
+    if (sess) {
+        SSL_SESSION_up_ref(sess);
+        SSL_set_session(ssl, sess);
+        SSL_SESSION_free(sess);
+    }
     BIO_free(buf);
-    SSL_SESSION_free(sess);
 }
 
 struct Impl_Context {
