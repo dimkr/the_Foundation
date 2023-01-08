@@ -909,7 +909,7 @@ iStringList *split_Rangecc(const iRangecc d, const char *separator) {
 
 int toInt_String(const iString *d) {
     if (startsWith_String(d, "0x") || startsWith_String(d, "0X")) {
-        return strtol(cstr_String(d), NULL, 16);
+        return (int) strtol(cstr_String(d), NULL, 16);
     }
     return atoi(cstr_String(d));
 }
@@ -1105,7 +1105,7 @@ int decodePrecedingBytes_MultibyteChar(const char *bytes, const char *start, iCh
     if (!precPos) {
         return 0;
     }
-    return bytes - precPos;
+    return (int) (bytes - precPos);
 }
 
 static char *threadLocalCharBuffer_(void) {

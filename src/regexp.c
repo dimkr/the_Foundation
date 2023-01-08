@@ -93,8 +93,8 @@ iBool match_RegExp(const iRegExp *d, const char *subject, size_t len, iRegExpMat
         uint32_t count = pcre2_get_ovector_count(matchData);
         iRangei *mrange = &match->range;
         for (uint32_t i = 0; i < count && i <= iRegExpMaxSubstrings; i++, mrange++) {
-            mrange->start = output[2 * i];
-            mrange->end   = output[2 * i + 1];
+            mrange->start = (int) output[2 * i];
+            mrange->end   = (int) output[2 * i + 1];
         }
         match->pos = match->range.end;
     }
