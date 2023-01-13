@@ -124,6 +124,7 @@ static void reuse_CachedSession(const iCachedSession *d, SSL *ssl) {
 }
 
 struct Impl_Context {
+    iString               libraryName;
     SSL_CTX *             ctx;
     X509_STORE *          certStore;
     iTlsRequestVerifyFunc userVerifyFunc;
@@ -230,6 +231,12 @@ static int verifyCallback_Context_(int preverifyOk, X509_STORE_CTX *storeCtx) {
 }
 
 void init_Context(iContext *d) {
+    init_String(&d->libraryName);
+#if defined (LIBRESSL_VERSION_TEXT)
+    setCStr_String(&d->libraryName, "LibreSSL");
+#else
+    setCStr_String(&d->libraryName, "OpenSSL");
+#endif
     d->tssKeyCurrentRequest = 0;
     tss_create(&d->tssKeyCurrentRequest, NULL);
 #if OPENSSL_API_COMPAT >= 0x10100000L
@@ -263,6 +270,7 @@ void deinit_Context(iContext *d) {
     deinit_Mutex(&d->cacheMutex);
     SSL_CTX_free(d->ctx);
     tss_delete(d->tssKeyCurrentRequest);
+    deinit_String(&d->libraryName);
 }
 
 iBool isValid_Context(iContext *d) {
@@ -824,6 +832,11 @@ static iBool encrypt_TlsRequest_(iTlsRequest *d) {
 void setCiphers_TlsRequest(const char *cipherList) {
     initContext_();
     SSL_CTX_set_cipher_list(context_->ctx, cipherList);
+}
+
+const char *libraryName_TlsRequest(void) {
+    initContext_();
+    return cstr_String(&context_->libraryName);
 }
 
 void init_TlsRequest(iTlsRequest *d) {
