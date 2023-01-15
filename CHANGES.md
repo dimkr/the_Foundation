@@ -2,6 +2,7 @@
 
 ## 1.6 - Unreleased
 * Block: Added a method to encode contents in Base64.
+* PtrArray: Added `copy` method.
 * TlsRequest: Avoid possible crash when reusing TLS sessions.
 * TlsRequest: Added a method to query the SSL library name (OpenSSL/LibreSSL).
 
