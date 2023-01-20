@@ -187,9 +187,12 @@ iString *newBlock_String(const iBlock *data) {
 }
 
 iString *copy_String(const iString *d) {
-    iString *copy = iMalloc(String);
-    initCopy_Block(&copy->chars, &d->chars);
-    return copy;
+    if (d) {
+        iString *copy = iMalloc(String);
+        initCopy_Block(&copy->chars, &d->chars);
+        return copy;
+    }
+    return new_String();
 }
 
 void delete_String(iString *d) {
