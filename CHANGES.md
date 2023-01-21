@@ -1,8 +1,10 @@
 # Changelog
 
-## 1.6 - Unreleased
+## 1.6 - 2023-01-21
 * Block: Added a method to encode contents in Base64.
 * PtrArray: Added `copy` method.
+* Process: Minor changes in how I/O is handled with the child process. Calling `writeInput` more than once is now possible.
+* Process: Added a test where processes are started concurrently from threads.
 * TlsRequest: Avoid possible crash when reusing TLS sessions.
 * TlsRequest: Added a method to query the SSL library name (OpenSSL/LibreSSL).
 
