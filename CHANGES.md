@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.1
+* Library SOVERSION uses the major version number only. Minor versions do not break ABI compatibility.
+
 ## 1.6 - 2023-01-21
 * Block: Added a method to encode contents in Base64.
 * PtrArray: Added `copy` method.
