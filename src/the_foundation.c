@@ -35,6 +35,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include <time.h>
 #include <locale.h>
 
+#if defined (iPlatformAndroid)
+#   include <android/log.h>
+#endif
+
 static iBool hasBeenInitialized_ = iFalse;
 
 void deinitForThread_Garbage_(void); /* garbage.c */
@@ -78,8 +82,18 @@ void setLocale_Foundation(void) {
 }
 
 void printMessage_Foundation(FILE *output, const char *format, ...) {
+#if defined (iPlatformAndroid)
+    iBlock msg;
+    init_Block(&msg, 0);
+    va_list args;
+    va_start(args, format);
+    vprintf_Block(&msg, format, args);
+    va_end(args);
+    __android_log_print(ANDROID_LOG_DEBUG, "tfdn", "%s", cstr_Block(&msg));
+#else
     va_list args;
     va_start(args, format);
     vfprintf(output, format, args);
     va_end(args);
+#endif
 }
