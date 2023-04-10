@@ -326,6 +326,7 @@ struct Impl_TlsCertificate {
 iDefineTypeConstruction(TlsCertificate)
 
 void init_TlsCertificate(iTlsCertificate *d) {
+    initContext_();
     d->cert  = NULL;
     d->chain = NULL;
     d->pkey  = NULL;
@@ -432,6 +433,7 @@ static void checkErrors_(void) {
 
 iTlsCertificate *newSelfSignedRSA_TlsCertificate(
     int rsaBits, iDate validUntil, const iTlsCertificateName *names) {
+    initContext_();
     /* Seed the random number generator. */
     if (!isPrngSeeded_) {
         iTime now;
