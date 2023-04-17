@@ -290,5 +290,6 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    deinit_Foundation();
     return 0;
 }

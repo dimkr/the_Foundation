@@ -54,6 +54,14 @@ void init_Threads(void);             /* thread.c */
 
 static iBool hasBeenInitialized_ = iFalse;
 
+static void checkDeinit_Foundation_(void) {
+    iAssert(!isInitialized_Foundation());
+    /* If deinit happens during atexit(), things may not work as expected, e.g., the program
+       may hang on Windows. This may be because worker threads have already been forcibly
+       terminated by the OS at this time. */
+    deinit_Foundation();
+}
+
 void init_Foundation(void) {
     init_Threads();
     init_Garbage();
@@ -66,19 +74,19 @@ void init_Foundation(void) {
     init_Windows_();
 #endif
     hasBeenInitialized_ = iTrue;
-    atexit(deinit_Foundation); /* should be manually called, though */
+    atexit(checkDeinit_Foundation_); /* deinit must be manually called (order undefined) */
 }
 
 void deinit_Foundation(void) {
     if (isInitialized_Foundation()) {
         hasBeenInitialized_ = iFalse;
-#if defined (iPlatformWindows)
-        deinit_Windows_();
-#endif
         deinit_DatagramThreads_();
         deinit_Address_();
         deinitForThread_Garbage_();
         deinit_Threads_();
+#if defined (iPlatformWindows)
+        deinit_Windows_();
+#endif
     }
 }
 

@@ -538,5 +538,6 @@ int main(int argc, char *argv[]) {
         iString *dec = collect_String(punyDecode_Rangecc(range_String(puny)));
         printf("%s => %s => %s\n", cstrLocal_String(&domain), cstr_String(puny), cstrLocal_String(dec));
     }
+    deinit_Foundation();
     return 0;
 }
