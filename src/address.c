@@ -35,8 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #if defined (iPlatformWindows)
 #  define WIN32_LEAN_AND_MEAN
 #  include <Windows.h>
-#  include <winsock2.h>
-#  include <ws2tcpip.h>
+#  include <WinSock2.h>
+#  include <WS2tcpip.h>
 #  include <iphlpapi.h>
 #  include "platform/win32/wide.h"
 #else

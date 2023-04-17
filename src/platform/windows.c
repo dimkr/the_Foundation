@@ -68,11 +68,9 @@ void init_Windows_(void) {
                     MB_ICONERROR);
         exit(1);
     }
-    iDebug("[Windows] initialized winsock2\n");
 }
 
 void deinit_Windows_(void) {
-    iDebug("[Windows] cleaning up winsock2\n");
     WSACleanup();
 }
 #endif
