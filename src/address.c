@@ -32,12 +32,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include "the_Foundation/queue.h"
 #include "the_Foundation/thread.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
+#if defined (iPlatformWindows)
+#  define WIN32_LEAN_AND_MEAN
+#  include <Windows.h>
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  include <iphlpapi.h>
+#  include "platform/win32/wide.h"
+#else
+#  include <sys/types.h>
+#  include <sys/socket.h>
+#  include <netdb.h>
+#  include <arpa/inet.h>
+#  include <netinet/in.h>
+#  include <ifaddrs.h>
+#endif
 
 enum iAddressFlag {
     finished_AddressFlag = 0x1,
@@ -63,7 +72,8 @@ iDefineAudienceGetter(Address, lookupFinished)
 #       undef AI_V4MAPPED_CFG
 #   endif
 #   define AI_V4MAPPED_CFG  0
-#elif defined (iPlatformLinux) || defined (iPlatformMsys) || defined (iPlatformCygwin)
+#elif defined (iPlatformLinux) || \
+      defined (iPlatformMsys) || defined (iPlatformCygwin) || defined (iPlatformWindows)     
 #   define AI_V4MAPPED_CFG  AI_V4MAPPED
 #endif
 
@@ -391,7 +401,45 @@ iString *toStringFlags_Address(const iAddress *d, int flags, int family) {
 
 iObjectList *networkInterfaces_Address(void) {
     iObjectList *list = new_ObjectList();
-#if !defined (iPlatformAndroid) /* not supported; see https://github.com/oliviertilmans/android-ifaddrs */
+#if defined (iPlatformWindows)
+    /* Use the Windows API to determine available network adapters. */ {
+        char hbuf[NI_MAXHOST];
+        ULONG family = AF_UNSPEC;
+        ULONG flags = 0; //GAA_FLAG_INCLUDE_PREFIX;
+        PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+        ULONG outBufLen = 16 * 1024;
+        DWORD dwRetVal = 0;
+        for (int tries = 3; tries > 0; tries--) {
+            pAddresses = (IP_ADAPTER_ADDRESSES *) malloc(outBufLen);
+            dwRetVal = GetAdaptersAddresses(family, flags, NULL, pAddresses, &outBufLen);
+            if (dwRetVal == ERROR_BUFFER_OVERFLOW) {
+                free(pAddresses);
+                pAddresses = NULL;
+                continue;
+            } 
+            break;
+        }
+        if (dwRetVal == NO_ERROR) {
+            for (PIP_ADAPTER_ADDRESSES pCurr = pAddresses; pCurr; pCurr = pCurr->Next) {
+                iDebug("[Address] adapter name: %s (%s)\n", 
+                        fromWide_CStr_(pCurr->FriendlyName), fromWide_CStr_(pCurr->Description));
+                for (PIP_ADAPTER_UNICAST_ADDRESS uni = pCurr->FirstUnicastAddress; uni; uni = uni->Next) {
+                    struct sockaddr *sockAddr = uni->Address.lpSockaddr;
+                    const socklen_t size = uni->Address.iSockaddrLength;
+                    if (!getnameinfo(sockAddr, size, hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST)) {
+                        iAddress *addr = newSockAddr_Address(sockAddr, size, tcp_SocketType);
+                        /* We also have a text version of the host address. */
+                        setCStr_String(&addr->hostName, hbuf);
+                        pushBack_ObjectList(list, addr);
+                    }
+                }
+            }
+        }
+        if (pAddresses) {
+            free(pAddresses);
+        }
+    }
+#elif !defined (iPlatformAndroid) /* not supported; see https://github.com/oliviertilmans/android-ifaddrs */
     struct ifaddrs *addrs = NULL;
     if (!getifaddrs(&addrs)) {
         for (struct ifaddrs *i = addrs; i; i = i->ifa_next) {

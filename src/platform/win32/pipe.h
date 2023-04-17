@@ -1,6 +1,8 @@
-/** @file wide.h  UTF-16 (i.e., Win32 wchar) utilities
+#pragma once
 
-@authors Copyright (c) 2021 Jaakko Keränen <jaakko.keranen@iki.fi>
+/** @file win32/pipe.h  Pipe.
+
+@authors Copyright (c) 2023 Jaakko Keränen <jaakko.keranen@iki.fi>
 
 @par License
 
@@ -25,11 +27,32 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 */
 
-#include "the_Foundation/string.h"
-#include <stdint.h>
-#include <wchar.h>
+#include "the_Foundation/defs.h"
 
-const wchar_t *   toWide_CStr_            (const char *u8);
-const char *      fromWide_CStr_          (const wchar_t *ws);
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 
-const char *      errorMessage_Windows_   (uint32_t systemErrorNumber);
+iDeclareType(Pipe)
+
+struct Impl_Pipe {
+    HANDLE hRead;
+    HANDLE hWrite;
+};
+
+iDeclareTypeConstruction(Pipe)
+
+iLocalDef HANDLE input_Pipe  (const iPipe *d) { return d->hWrite; }
+iLocalDef HANDLE output_Pipe (const iPipe *d) { return d->hRead; }
+
+size_t  write_Pipe  (const iPipe *, const void *data, size_t size);
+size_t  read_Pipe   (const iPipe *, size_t size, void *data_out);
+
+iLocalDef void writeByte_Pipe(const iPipe *d, uint8_t value) {
+    write_Pipe(d, &(char){ (char) value }, 1);
+}
+
+iLocalDef uint8_t readByte_Pipe(const iPipe *d) {
+    uint8_t value = 0;
+    read_Pipe(d, 1, &value);
+    return value;
+}

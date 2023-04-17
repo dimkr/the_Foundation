@@ -39,7 +39,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #   include <android/log.h>
 #endif
 
-static iBool hasBeenInitialized_ = iFalse;
+#if defined (iPlatformWindows)
+void init_Windows_(void);
+void deinit_Windows_(void);
+#endif
 
 void deinitForThread_Garbage_(void); /* garbage.c */
 void deinit_DatagramThreads_(void);  /* datagram.c */
@@ -49,16 +52,19 @@ void init_DatagramThreads_(void);    /* datagram.c */
 void init_Locale(void);              /* locale */
 void init_Threads(void);             /* thread.c */
 
+static iBool hasBeenInitialized_ = iFalse;
+
 void init_Foundation(void) {
     init_Threads();
     init_Garbage();
-    iDebug("[the_Foundation] version: %i.%i.%i%s cstd:%li\n",
-           version_Foundation.major, version_Foundation.minor, version_Foundation.patch,
-           strlen(iFoundationLibraryGitTag) ? format_CStr("-%s", iFoundationLibraryGitTag) : "",
+    iDebug("[the_Foundation] version:" iFoundationLibraryVersionCStr " cstd:%li\n",
            __STDC_VERSION__);
     /* Locale. */ {
         setLocale_Foundation();
     }
+#if defined (iPlatformWindows)
+    init_Windows_();
+#endif
     hasBeenInitialized_ = iTrue;
     atexit(deinit_Foundation); /* should be manually called, though */
 }
@@ -66,6 +72,9 @@ void init_Foundation(void) {
 void deinit_Foundation(void) {
     if (isInitialized_Foundation()) {
         hasBeenInitialized_ = iFalse;
+#if defined (iPlatformWindows)
+        deinit_Windows_();
+#endif
         deinit_DatagramThreads_();
         deinit_Address_();
         deinitForThread_Garbage_();

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7
+* Native Windows build using MinGW64: Winsock2 for sockets, IP addresses.
+
 ## 1.6.1
 * Library SOVERSION uses the major version number only. Minor versions do not break ABI compatibility.
 

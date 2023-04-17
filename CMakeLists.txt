@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.1)
 
-project (the_Foundation VERSION 1.6.1 LANGUAGES C)
+project (the_Foundation VERSION 1.7.0 LANGUAGES C)
 set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
 
 include (CheckIncludeFile)
@@ -169,6 +169,7 @@ set (HEADERS
 )
 set (SOURCES
     src/the_foundation.c
+    src/address.c
     src/audience.c
     src/array.c
     src/block.c
@@ -250,7 +251,6 @@ if (NOT iPlatformWindows) # POSIX
         src/platform/posix/pipe.h
     )
     list (APPEND SOURCES
-        src/platform/posix/address.c
         src/platform/posix/datagram.c
         src/platform/posix/locale.c
         src/platform/posix/pipe.c
@@ -263,17 +263,19 @@ else () # WIN32
         src/platform/win32/msdirent.h
     )
     list (APPEND SOURCES
-        src/platform/win32/address.c
         src/platform/win32/datagram.c
+        src/platform/win32/pipe.c
+        src/platform/win32/pipe.h
         src/platform/win32/process.c
         src/platform/win32/service.c
         src/platform/win32/socket.c
+        src/platform/win32/wide.c
+        src/platform/win32/wide.h
     )
 endif ()
 if (TFDN_ENABLE_WIN32_FILE_API AND (iPlatformWindows OR iPlatformMsys))
     list (APPEND SOURCES
         src/platform/win32/file.c
-        src/platform/win32/wide.h
     )
     set (iHaveWin32FileAPI YES)
 else ()
@@ -309,6 +311,11 @@ if (GIT_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
         OUTPUT_VARIABLE iFoundationLibraryGitTag
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
+endif ()
+if (iFoundationLibraryGitTag)
+    set (the_Foundation_VERSION_SUFFIX "-${iFoundationLibraryGitTag}")
+else ()
+    set (the_Foundation_VERSION_SUFFIX "")
 endif ()
 configure_file (config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 

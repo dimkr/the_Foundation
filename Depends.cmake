@@ -120,6 +120,9 @@ macro (tfdn_link_depends target mode)
         ${OPENSSL_INCLUDE_DIRS}
     )
     target_link_libraries (${target} ${mode} ${UNISTRING_LIBRARIES})
+    if (iPlatformWindows)    
+        target_link_libraries (${target} ${mode} ws2_32 iphlpapi)   # Winsock2
+    endif ()
     if (ZLIB_FOUND)
         target_link_libraries (${target} ${mode} ${ZLIB_LIBRARIES})
     endif ()

@@ -1,6 +1,6 @@
-/** @file wide.h  UTF-16 (i.e., Win32 wchar) utilities
+/** @file win32/pipe.c  Pipe.
 
-@authors Copyright (c) 2021 Jaakko Keränen <jaakko.keranen@iki.fi>
+@authors Copyright (c) 2023 Jaakko Keränen <jaakko.keranen@iki.fi>
 
 @par License
 
@@ -25,11 +25,36 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 */
 
-#include "the_Foundation/string.h"
-#include <stdint.h>
-#include <wchar.h>
+#include "pipe.h"
+#include "wide.h"
 
-const wchar_t *   toWide_CStr_            (const char *u8);
-const char *      fromWide_CStr_          (const wchar_t *ws);
+iDefineTypeConstruction(Pipe)
 
-const char *      errorMessage_Windows_   (uint32_t systemErrorNumber);
+void init_Pipe(iPipe *d) {
+    SECURITY_ATTRIBUTES security = {
+        .nLength = sizeof(security),
+        .bInheritHandle = TRUE, /* child process can inherit */
+    };
+    if (!CreatePipe(&d->hRead, &d->hWrite, &security, 0)) {
+        iWarning("[pipe] error creating pipe: %s\n", errorMessage_Windows_(GetLastError()));
+        d->hRead = NULL;
+        d->hWrite = NULL;
+    }
+}
+
+void deinit_Pipe(iPipe *d) {
+    CloseHandle(d->hRead);
+    CloseHandle(d->hWrite);
+}
+
+size_t write_Pipe(const iPipe *d, const void *data, size_t size) {
+    DWORD numWritten = 0;
+    WriteFile(input_Pipe(d), data, size, &numWritten, NULL);
+    return numWritten;
+}
+
+size_t read_Pipe(const iPipe *d, size_t size, void *data_out) {
+    DWORD numRead = 0;
+    ReadFile(output_Pipe(d), data_out, size, &numRead, NULL);    
+    return numRead;
+}
