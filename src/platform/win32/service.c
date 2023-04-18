@@ -29,7 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include "the_Foundation/socket.h"
 #include "the_Foundation/string.h"
 #include "the_Foundation/thread.h"
-#include "pipe.h"
 #include "wide.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -40,7 +39,8 @@ struct Impl_Service {
     iObject object;
     uint16_t port;
     SOCKET fd;
-    iPipe stop;
+    HANDLE fdEvent;
+    HANDLE stopEvent;
     iThread *listening;
     iAudience *incomingAccepted;
 };
@@ -50,55 +50,69 @@ iDefineAudienceGetter(Service, incomingAccepted)
 iDefineObjectConstructionArgs(Service, (uint16_t port), port)
 
 static iThreadResult listen_Service_(iThread *thd) {
-    iService *d = userData_Thread(thd);
-    while (d->fd >= 0) {
+    iService *d = userData_Thread(thd);    
+    while (d->fd != INVALID_SOCKET) {
         /* Wait for activity. */
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(d->fd, &fds);
-        FD_SET(output_Pipe(&d->stop), &fds);
-        if (select(0, &fds, NULL, NULL, NULL) == -1) {
+        HANDLE events[2] = { d->fdEvent, d->stopEvent };
+        DWORD rc = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+        if (rc == WAIT_FAILED) {
+            iDebug("[Service] %s\n", errorMessage_Windows_(GetLastError()));
             break;
         }
-        if (FD_ISSET(output_Pipe(&d->stop), &fds)) {
+        else if (rc == WAIT_OBJECT_0 + 1) {
+            iDebug("[Service] stop signal received\n");
             break;
         }
-        if (FD_ISSET(d->fd, &fds)) {
-            struct sockaddr_storage addr;
-            int size = sizeof(addr);
-            int incoming = accept(d->fd, (struct sockaddr *) &addr, &size);
-            if (incoming < 0) {
-                iWarning("[Service] error on accept: %s\n",
-                         errorMessage_Windows_(WSAGetLastError()));
+        else if (rc == WAIT_OBJECT_0) {
+            WSANETWORKEVENTS ev;
+            iZap(ev);
+            WSAEnumNetworkEvents(d->fd, d->fdEvent, &ev);
+            if (ev.lNetworkEvents & FD_ACCEPT) {
+                struct sockaddr_storage addr;
+                int size = sizeof(addr);
+                int incoming = accept(d->fd, (struct sockaddr *) &addr, &size);
+                if (incoming < 0) {
+                    iWarning("[Service] error on accept: %s\n",
+                             errorMessage_Windows_(WSAGetLastError()));
+                    break;
+                }
+                iSocket *socket = newExisting_Socket(incoming, &addr, size);
+                iNotifyAudienceArgs(d, incomingAccepted, ServiceIncomingAccepted, socket);
+                iRelease(socket);
+            }
+            else if (ev.lNetworkEvents & FD_CLOSE) {
+                iDebug("[Service] socket closed\n");
                 break;
             }
-            iSocket *socket = newExisting_Socket(incoming, &addr, size);
-            iNotifyAudienceArgs(d, incomingAccepted, ServiceIncomingAccepted, socket);
-            iRelease(socket);
         }
     }
     iReleasePtr(&d->listening);
+    iDebug("[Service] listen thread exited\n");
     return 0;
 }
 
 void init_Service(iService *d, uint16_t port) {
     d->port = port;
-    d->fd = NULL;
+    d->fd = INVALID_SOCKET;
     d->listening = NULL;
-    init_Pipe(&d->stop);
+    //init_Pipe(&d->stop);
+    d->fdEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    d->stopEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     d->incomingAccepted = new_Audience();
 }
 
 void deinit_Service(iService *d) {
     close_Service(d);
-    deinit_Pipe(&d->stop);
+    //deinit_Pipe(&d->stop);
+    CloseHandle(d->stopEvent);
+    CloseHandle(d->fdEvent);
     iAssert(d->listening == NULL);
-    iAssert(!d->fd);
+    iAssert(d->fd == INVALID_SOCKET);
     delete_Audience(d->incomingAccepted);
 }
 
 iBool isOpen_Service(const iService *d) {
-    return d->fd >= 0;
+    return d->fd != INVALID_SOCKET;
 }
 
 iBool open_Service(iService *d) {
@@ -118,25 +132,26 @@ iBool open_Service(iService *d) {
             return iFalse;
         }
         d->fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
-        if (d->fd < 0) {
+        if (d->fd == INVALID_SOCKET) {
             iWarning("[Service] failed to open socket: %s\n", errorMessage_Windows_(WSAGetLastError()));
             return iFalse;
         }
         rc = bind(d->fd, info->ai_addr, info->ai_addrlen);
         if (rc < 0) {
             closesocket(d->fd);
-            d->fd = NULL;
+            d->fd = INVALID_SOCKET;
             iWarning("[Service] failed to bind address: %s\n", errorMessage_Windows_(WSAGetLastError()));
             return iFalse;
         }
         rc = listen(d->fd, 10);
         if (rc < 0) {
             closesocket(d->fd);
-            d->fd = NULL;
+            d->fd = INVALID_SOCKET;
             iWarning("[Service] failed to listen: %s\n", errorMessage_Windows_(WSAGetLastError()));
             return iFalse;
         }
     }
+    WSAEventSelect(d->fd, d->fdEvent, FD_ACCEPT | FD_CLOSE);
     d->listening = new_Thread(listen_Service_);
     setUserData_Thread(d->listening, d);
     start_Thread(d->listening);
@@ -146,11 +161,16 @@ iBool open_Service(iService *d) {
 void close_Service(iService *d) {
     if (d->listening) {
         /* Signal the listening thread to stop. */
-        writeByte_Pipe(&d->stop, 1);
+        //writeByte_Pipe(&d->stop, 1);
+        SetEvent(d->stopEvent);
         closesocket(d->fd);
-        d->fd = NULL;
+        d->fd = INVALID_SOCKET;
         join_Thread(d->listening);
         iAssert(d->listening == NULL);
+    }
+    if (d->fd != INVALID_SOCKET) {
+        closesocket(d->fd);
+        d->fd = INVALID_SOCKET;
     }
 }
 

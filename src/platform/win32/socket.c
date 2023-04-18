@@ -30,7 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include "the_Foundation/mutex.h"
 #include "the_Foundation/thread.h"
 #include "the_Foundation/atomic.h"
-#include "pipe.h"
 #include "wide.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -56,7 +55,8 @@ struct Impl_Socket {
     enum iSocketStatus status;
     iAddress *address;
     SOCKET fd;
-    iPipe *stopConnect;
+    HANDLE fdEvent;
+    HANDLE stopConnectEvent;
     iThread *connecting;
     iSocketThread *thread;
     iCondition allSent;
@@ -92,7 +92,7 @@ iDeclareClass(SocketThread)
 struct Impl_SocketThread {
     iThread thread;
     iSocket *socket;
-    iPipe wakeup;
+    HANDLE wakeupEvent;
     iAtomicInt mode; /* enum iSocketThreadMode */
 };
 
@@ -107,33 +107,26 @@ static iThreadResult run_SocketThread_(iThread *thread) {
     iBlock *inbuf = collect_Block(new_Block(0x20000));
     iGuardMutex(smx, {
         /* Connection has been formed. */
-        delete_Pipe(d->socket->stopConnect);
-        d->socket->stopConnect = NULL;
+        CloseHandle(d->socket->stopConnectEvent);
+        d->socket->stopConnectEvent = INVALID_HANDLE_VALUE;
     });
     while (value_Atomic(&d->mode) == run_SocketThreadMode) {
         if (bytesToSend_Socket(d->socket) > 0) {
             /* Make sure we won't block on select() when there's still data to send. */
-            writeByte_Pipe(&d->wakeup, 0);
+            SetEvent(d->wakeupEvent);
         }
         /* Wait for activity. */
-        fd_set reads, errors; {
-            FD_ZERO(&reads);
-            FD_ZERO(&errors);
-            FD_SET(output_Pipe(&d->wakeup), &reads);
-            FD_SET(d->socket->fd, &reads);
-            FD_SET(d->socket->fd, &errors);
-            int ready = select(0, &reads, NULL, &errors, NULL);
-            if (ready == -1) {
-                const DWORD err = WSAGetLastError();
-                iWarning("[Socket] error from select(): %s\n", errorMessage_Windows_(err));
-                return errno_Windows_(err);
-            }
-        }
-        if (FD_ISSET(output_Pipe(&d->wakeup), &reads)) {
-            readByte_Pipe(&d->wakeup);
+        HANDLE events[2] = { d->socket->fdEvent, d->wakeupEvent };
+        DWORD waitResult = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+        if (waitResult == WAIT_FAILED) {
+            const DWORD err = GetLastError();
+            iWarning("[Socket] %s\n", errorMessage_Windows_(err));
+            return errno_Windows_(err);
         }
         /* Check for incoming data. */
-        if (FD_ISSET(d->socket->fd, &reads)) {
+        WSANETWORKEVENTS netEvents;
+        WSAEnumNetworkEvents(d->socket->fd, d->socket->fdEvent, &netEvents);
+        if (netEvents.lNetworkEvents & FD_READ) {
             ssize_t readSize = recv(d->socket->fd, data_Block(inbuf), size_Block(inbuf), 0);
             if (readSize == 0) {
                 iWarning("[Socket] peer closed the connection while we were receiving\n");
@@ -156,12 +149,11 @@ static iThreadResult run_SocketThread_(iThread *thread) {
             iNotifyAudience(d->socket, readyRead, SocketReadyRead);
         }
         /* Problem with the socket? */
-        if (FD_ISSET(d->socket->fd, &errors)) {
+        if (netEvents.lNetworkEvents & FD_CLOSE) {
             if (status_Socket(d->socket) == connected_SocketStatus) {
-                const DWORD err = WSAGetLastError();
-                iWarning("[Socket] error while receiving: %s\n", errorMessage_Windows_(err));
+                iDebug("[Socket] socket was closed\n");
                 shutdown_Socket_(d->socket);
-                return errno_Windows_(err);
+                return ENOTCONN;
             }
             return 0;
         }
@@ -220,18 +212,18 @@ static void init_SocketThread(iSocketThread *d, iSocket *socket,
         setName_Thread(&d->thread, cstr_String(&name));
         deinit_String(&name);
     }
-    init_Pipe(&d->wakeup);
+    d->wakeupEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     d->socket = socket;
     set_Atomic(&d->mode, mode);
 }
 
 static void deinit_SocketThread(iSocketThread *d) {
-    deinit_Pipe(&d->wakeup);
+    CloseHandle(d->wakeupEvent);
 }
 
 static void exit_SocketThread_(iSocketThread *d) {
     set_Atomic(&d->mode, stop_SocketThreadMode);
-    writeByte_Pipe(&d->wakeup, 1); // select() will exit
+    SetEvent(d->wakeupEvent);
     join_Thread(&d->thread);
 }
 
@@ -264,9 +256,10 @@ static void init_Socket_(iSocket *d) {
     d->input = new_Buffer();
     openEmpty_Buffer(d->output);
     openEmpty_Buffer(d->input);
-    d->fd = NULL;
+    d->fd = INVALID_SOCKET;
+    d->fdEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     d->address = NULL;
-    d->stopConnect = new_Pipe(); /* used for aborting select() on user action */
+    d->stopConnectEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     d->connecting = NULL;
     d->thread = NULL;
     init_Condition(&d->allSent);
@@ -289,7 +282,10 @@ void deinit_Socket(iSocket *d) {
     waitForFinished_Address(d->address);
     iReleasePtr(&d->address);
     deinit_Mutex(&d->mutex);
-    delete_Pipe(d->stopConnect);
+    if (d->stopConnectEvent != INVALID_HANDLE_VALUE) {
+        CloseHandle(d->stopConnectEvent);
+    }
+    CloseHandle(d->fdEvent);
     deinit_Condition(&d->allSent);
     delete_Audience(d->connected);
     delete_Audience(d->disconnected);
@@ -322,15 +318,15 @@ static iBool setNonBlocking_Socket_(iSocket *d, iBool set) {
 static void shutdown_Socket_(iSocket *d) {
     iGuardMutex(&d->mutex, {
         setStatus_Socket_(d, disconnecting_SocketStatus);
-        if (d->fd) {
+        if (d->fd != INVALID_SOCKET) {
             shutdown(d->fd, SD_RECEIVE);
         }
     });
     iBool notify = iFalse;
     iGuardMutex(&d->mutex, {
-        if (d->fd) {
+        if (d->fd != INVALID_SOCKET) {
             closesocket(d->fd);
-            d->fd = NULL;
+            d->fd = INVALID_SOCKET;
         }
         notify = setStatus_Socket_(d, disconnected_SocketStatus);
     });
@@ -369,12 +365,13 @@ static iThreadResult connectAsync_Socket_(iThread *thd) {
                    cstrCollect_String(toString_SockAddr(addr)),
                    addrSize, indexInFamily);
             const iSocketParameters sp = socketParametersIndex_Address(d->address, addrIndex);
-            if (d->fd) {
+            if (d->fd != INVALID_SOCKET) {
                 closesocket(d->fd);
-                d->fd = NULL;
+                d->fd = INVALID_SOCKET;
             }
             iDebug("[Socket] family:%d type:%d protocol:%d\n", sp.family, sp.type, sp.protocol);
             d->fd = socket(sp.family, sp.type, sp.protocol);
+            WSAEventSelect(d->fd, d->fdEvent, FD_CONNECT | FD_READ | FD_CLOSE);
             if (!setNonBlocking_Socket_(d, iTrue)) {
                 /* Wait indefinitely. */
                 rc = connect(d->fd, addr, addrSize);
@@ -382,46 +379,36 @@ static iThreadResult connectAsync_Socket_(iThread *thd) {
             else {
                 /* Give up after a timeout. */
                 rc = connect(d->fd, addr, addrSize);
-                if (rc && WSAGetLastError() != WSAEINPROGRESS) {
+                if (rc && WSAGetLastError() != WSAEWOULDBLOCK) {
                     iDebug("[Socket] result from connect: rc=%d (%s)\n",
                            rc,
                            errorMessage_Windows_(WSAGetLastError()));
                     continue;
                 }
-                iAssert(d->stopConnect != NULL);
-                const HANDLE stopFd = output_Pipe(d->stopConnect);
-                fd_set stopSet;
-                fd_set connSet;
-                fd_set errSet;
-                FD_ZERO(&stopSet);
-                FD_ZERO(&connSet);
-                FD_ZERO(&errSet);
-                FD_SET(stopFd, &stopSet);
-                FD_SET(d->fd, &connSet);
-                FD_SET(d->fd, &errSet);
-                struct timeval timeout = { .tv_sec = connectionTimeoutSeconds_Socket_ };
-                rc = select(0, &stopSet, &connSet, &errSet, &timeout);
-                if (rc > 0) {
-                    if (FD_ISSET(stopFd, &stopSet)) {
-                        setError_Socket_(d, ECONNABORTED, "Connection aborted");
-                        return ECONNABORTED;
+                HANDLE events[2] = { d->stopConnectEvent, d->fdEvent };
+                DWORD waitResult = WaitForMultipleObjects(
+                    2, events, FALSE, connectionTimeoutSeconds_Socket_ * 1000);
+                if (waitResult == WAIT_OBJECT_0 /* stop connect */) {
+                    setError_Socket_(d, ECONNABORTED, "Connection aborted");
+                    return ECONNABORTED;
+                }
+                else if (waitResult == WAIT_OBJECT_0 + 1) {
+                    WSANETWORKEVENTS netEvents;
+                    WSAEnumNetworkEvents(d->fd, d->fdEvent, &netEvents);
+                    if (netEvents.lNetworkEvents & FD_CONNECT) {
+                        const int err = netEvents.iErrorCode[FD_CONNECT_BIT];
+                        if (err) {
+                            errno = WSAECONNREFUSED;
+                            iDebug("[Socket] socket error: %s\n", errorMessage_Windows_(err));
+                            continue;
+                        }
+                        rc = 0; /* Success. */
+                        setNonBlocking_Socket_(d, iFalse);
                     }
-                    socklen_t argLen = sizeof(int);
-                    int sockError = 0;
-                    getsockopt(d->fd, SOL_SOCKET, SO_ERROR, (char *) &sockError, &argLen);
-                    if (sockError) {
-                        errno = sockError;
-                        iDebug("[Socket] socket error: errno=%d (%s)\n",
-                               errno,
-                               strerror(errno));
-                        continue;
-                    }
-                    rc = 0; /* Success. */
-                    setNonBlocking_Socket_(d, iFalse);
                 }
                 else {
                     rc = -1;
-                    errno = ETIMEDOUT;
+                    errno = WSAETIMEDOUT;
                 }
             }
             lock_Mutex(&d->mutex);
@@ -441,10 +428,10 @@ static iThreadResult connectAsync_Socket_(iThread *thd) {
     }
     if (rc) {
         int errNum;
-        char *msg;
+        const char *msg;
         if (isHostFound_Address(d->address)) {
             errNum = errno;
-            msg = strerror(errNum);
+            msg = errorMessage_Windows_(errNum);
         }
         else {
             errNum = -1;
@@ -468,7 +455,7 @@ static iBool open_Socket_(iSocket *d) {
         return iFalse;
     }
     else if (!d->connecting) {
-        iAssert(!d->fd);
+        iAssert(d->fd == INVALID_SOCKET);
         setStatus_Socket_(d, connecting_SocketStatus);
         d->connecting = new_Thread(connectAsync_Socket_);
         setUserData_Thread(d->connecting, d);
@@ -504,6 +491,7 @@ iSocket *newExisting_Socket(int fd, const void *sockAddr, size_t sockAddrSize) {
     iSocket *d = iNew(Socket);
     init_Socket_(d);
     d->fd = fd;
+    WSAEventSelect(d->fd, d->fdEvent, FD_READ | FD_CLOSE);
     d->address = newSockAddr_Address(sockAddr, sockAddrSize, tcp_SocketType);
     setStatus_Socket_(d, connected_SocketStatus);
     startThread_Socket_(d);
@@ -551,8 +539,8 @@ void close_Socket(iSocket *d) {
             return;
         }
         if (d->status == connecting_SocketStatus) {
-            if (d->stopConnect) {
-                write_Pipe(d->stopConnect, "0", 1);
+            if (d->stopConnectEvent != INVALID_HANDLE_VALUE) {
+                SetEvent(d->stopConnectEvent);
             }
             shutdown(d->fd, SD_SEND);
         }
@@ -612,7 +600,7 @@ static size_t write_Socket_(iSocket *d, const void *data, size_t size) {
     iGuardMutex(&d->mutex, {
         writeData_Stream(stream_Buffer(d->output), data, size);
         if (d->thread) {
-            writeByte_Pipe(&d->thread->wakeup, 0); // wake up the I/O thread
+            SetEvent(d->thread->wakeupEvent); /* wake up the I/O thread */
         }
     });
     return size;
