@@ -106,7 +106,6 @@ static iThreadResult messageReceiver_(iThread *thread) {
         sleep_Thread(0.1);
     }
     iRelease(sock);
-    iRelease(thread);
     return 0;
 }
 
@@ -120,6 +119,7 @@ static void communicate_(iAny *d, iService *sv, iSocket *sock) {
     setUserData_Thread(receiver, ref_Object(sock));
     observeSocket_(sock);
     start_Thread(receiver);
+    iRelease(receiver);
 }
 
 static iBool connectTo_(const char *address) {
