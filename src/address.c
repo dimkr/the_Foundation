@@ -61,6 +61,7 @@ struct Impl_Address {
     int flags;
     int count;
     struct addrinfo *info;
+    iBool infoWasAllocatedWithMalloc;
     iAudience *lookupFinished;
     iCondition *lookupDidFinish;
 };
@@ -170,6 +171,7 @@ iAddress *newSockAddr_Address(const void *     sockAddr,
     d->info->ai_socktype = d->socktype;
     d->info->ai_family = (sockAddrSize == sizeof(struct sockaddr_in6) ? AF_INET6 : AF_INET);
     memcpy(d->info->ai_addr, sockAddr, sockAddrSize);
+    d->infoWasAllocatedWithMalloc = iTrue;
     return d;
 }
 
@@ -179,17 +181,32 @@ void init_Address(iAddress *d) {
     init_String(&d->service);
     d->socktype = SOCK_STREAM;
     d->info = NULL;
+    d->infoWasAllocatedWithMalloc = iFalse;
     d->count = -1;
     d->flags = finished_AddressFlag;
     d->lookupFinished = NULL;
     d->lookupDidFinish = new_Condition();
 }
 
+static void freeInfo_Address_(iAddress *d) {
+    if (d->info) {
+        if (d->infoWasAllocatedWithMalloc) {
+            free(d->info->ai_addr);
+            free(d->info);
+        }
+        else {
+            freeaddrinfo(d->info);
+        }
+        d->info = NULL;
+    }
+    d->infoWasAllocatedWithMalloc = iFalse;
+}
+
 void deinit_Address(iAddress *d) {
     /* Note: This is never called when lookup is pending because `lookupQueue_` holds a ref. */
     lock_Mutex(d->mutex);
     delete_Condition(d->lookupDidFinish);
-    if (d->info) freeaddrinfo(d->info);
+    freeInfo_Address_(d);
     deinit_String(&d->service);
     deinit_String(&d->hostName);
     unlock_Mutex(d->mutex);
@@ -291,10 +308,7 @@ iBool equal_Address(const iAddress *d, const iAddress *other) {
 
 void lookupCStr_Address(iAddress *d, const char *hostName, uint16_t port, enum iSocketType socketType) {
     waitForFinished_Address(d);
-    if (d->info) {
-        freeaddrinfo(d->info);
-        d->info = NULL;
-    }
+    freeInfo_Address_(d);
     d->flags &= ~finished_AddressFlag;
     d->count = -1;
     d->socktype = (socketType == udp_SocketType ? SOCK_DGRAM : SOCK_STREAM);

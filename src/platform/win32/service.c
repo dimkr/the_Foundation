@@ -78,7 +78,7 @@ static iThreadResult listen_Service_(iThread *thd) {
                 }
                 iSocket *socket = newExisting_Socket(incoming, &addr, size);
                 iNotifyAudienceArgs(d, incomingAccepted, ServiceIncomingAccepted, socket);
-                iRelease(socket);
+                iRelease(socket); /* audience members should now hold a reference */
             }
             else if (ev.lNetworkEvents & FD_CLOSE) {
                 iDebug("[Service] socket closed\n");
