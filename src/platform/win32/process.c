@@ -1,6 +1,6 @@
 /** @file win32/process.c  Execute and communicate with child processes.
 
-@authors Copyright (c) 2019 Jaakko Keränen <jaakko.keranen@iki.fi>
+@authors Copyright (c) 2019-2023 Jaakko Keränen <jaakko.keranen@iki.fi>
 
 @par License
 
@@ -26,45 +26,73 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 */
 
 #include "the_Foundation/process.h"
+
+#include "the_Foundation/block.h"
 #include "the_Foundation/stringlist.h"
-#include "the_Foundation/path.h"
+#include "pipe.h"
+#include "wide.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
-// #include <spawn.h>
-// #include <poll.h>
-// #include <unistd.h>
-// #include <signal.h>
-// #include <sys/wait.h>
-
 struct Impl_Process {
     iObject object;
+    DWORD pid;
     iStringList *args;
+    iStringList *envMods;
     iString workDir;
+    iPipe pin;
+    iPipe pout;
+    iPipe perr;
     PROCESS_INFORMATION procInfo;
-    // iPipe pout;
-    // iPipe perr;
+    STARTUPINFOW startInfo;
+    int exitStatus;
 };
 
 iDefineObjectConstruction(Process)
 iDefineClass(Process)
 
-extern char **environ; // The environment variables.
-
 void init_Process(iProcess *d) {
-    d->args = new_StringList();
+    d->pid     = 0;
+    d->args    = new_StringList();
+    d->envMods = new_StringList();
     init_String(&d->workDir);
+    init_Pipe(&d->pin);
+    init_Pipe(&d->pout);
+    init_Pipe(&d->perr);
     iZap(d->procInfo);
-    // init_Pipe(&d->pout);
-    // init_Pipe(&d->perr);
+    d->startInfo = (STARTUPINFOW){
+        .cb         = sizeof(d->startInfo),
+        .hStdError  = input_Pipe(&d->perr),
+        .hStdOutput = input_Pipe(&d->pout),
+        .hStdInput  = output_Pipe(&d->pin),
+        .dwFlags    = STARTF_USESTDHANDLES,
+    };
+    d->exitStatus = 0;
+    /* Child must not inherit our end of the pipes. */
+    SetHandleInformation(output_Pipe(&d->pout), HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(output_Pipe(&d->perr), HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(input_Pipe(&d->pin), HANDLE_FLAG_INHERIT, 0);
+    /* Non-blocking stdout and stderr. */ {
+        DWORD mode = PIPE_NOWAIT;
+        SetNamedPipeHandleState(output_Pipe(&d->pout), &mode, NULL, NULL);
+        SetNamedPipeHandleState(output_Pipe(&d->perr), &mode, NULL, NULL);
+    }
+
 }
 
 void deinit_Process(iProcess *d) {
+    if (d->pid) {
+        if (d->procInfo.hProcess != INVALID_HANDLE_VALUE) {
+            CloseHandle(d->procInfo.hProcess);
+        }
+    }
     iRelease(d->args);
+    iRelease(d->envMods);
     deinit_String(&d->workDir);
-    // deinit_Pipe(&d->pout);
-    // deinit_Pipe(&d->perr);
+    deinit_Pipe(&d->pin);
+    deinit_Pipe(&d->pout);
+    deinit_Pipe(&d->perr);
 }
 
 void setArguments_Process(iProcess *d, const iStringList *args) {
@@ -74,101 +102,189 @@ void setArguments_Process(iProcess *d, const iStringList *args) {
     }
 }
 
+void setEnvironment_Process(iProcess *d, const iStringList *env) {
+    clear_StringList(d->envMods);
+    iConstForEach(StringList, i, env) {
+        pushBack_StringList(d->envMods, i.value);
+    }
+}
+
 void setWorkingDirectory_Process(iProcess *d, const iString *cwd) {
     set_String(&d->workDir, cwd);
 }
 
 iBool start_Process(iProcess *d) {
-    // posix_spawn_file_actions_t facts;
-    // int rc;
-    // const char **argv;
-    // iString *oldCwd = cwd_Path();
-    // setCwd_Path(&d->workDir);
-    // argv = malloc(sizeof(char *) * (size_StringList(d->args) + 1));
-    // for (size_t i = 0; i < size_StringList(d->args); ++i) {
-    //     argv[i] = cstr_String(at_StringList(d->args, i));
-    // }
-    // argv[size_StringList(d->args)] = NULL;
-    // // Use pipes to redirect the child's stdout/stderr to us.
-    // posix_spawn_file_actions_init(&facts);
-    // posix_spawn_file_actions_addclose(&facts, output_Pipe(&d->pout));
-    // posix_spawn_file_actions_addclose(&facts, output_Pipe(&d->perr));
-    // posix_spawn_file_actions_adddup2 (&facts, input_Pipe(&d->pout), 1); // stdout
-    // posix_spawn_file_actions_adddup2 (&facts, input_Pipe(&d->perr), 2); // stderr
-    // posix_spawn_file_actions_addclose(&facts, input_Pipe(&d->pout));
-    // posix_spawn_file_actions_addclose(&facts, input_Pipe(&d->perr));
-    // // Start the child process.
-    // rc = posix_spawn(&d->pid, argv[0], &facts, NULL, iConstCast(char **, argv), environ);
-    // free(argv);
-    // setCwd_Path(oldCwd);
-    // delete_String(oldCwd);
-    // posix_spawn_file_actions_destroy(&facts);
-    // return rc == 0;
-    return iFalse;
+    LPVOID envs = NULL;
+    iString *cmdLine = new_String();
+    /* Build the command line, quoting arguments as needed. */ {
+        iConstForEach(StringList, i, d->args) {
+            iString *arg = copy_String(i.value);
+            if (contains_String(arg, ' ') || contains_String(arg, '"')) {
+                replace_String(arg, "\\", "\\\\");
+                replace_String(arg, "\"", "\\\"");
+                prependCStr_String(arg, "\"");
+                appendCStr_String(arg, "\"");
+            }
+            if (!isEmpty_String(cmdLine)) {
+                appendCStr_String(cmdLine, " ");
+            }
+            append_String(cmdLine, arg);
+            delete_String(arg);
+        }
+    }
+    printf("cmdline: %s\n", cstr_String(cmdLine));
+    /* The environment. */
+    if (!isEmpty_StringList(d->envMods)) {
+        //iBlock *env = collect_Block(new_Block(0));
+        /* TODO: Compose the new environment strings */
+#if 0
+        for (const char *envList = GetEnvironmentStringsA(); *envList; ) {
+            size_t len = strlen(envList);
+            pushBack_Array(env, e);
+        }
+        iConstForEach(StringList, e, d->envMods) {
+            pushBack_Array(env, &(const char *){ cstr_String(e.value) });
+        }
+        pushBack_Array(env, &(const char *){ NULL });
+        envs = (LPVOID) data_Array(env);
+#endif
+    }
+    DWORD creationFlags = 0;
+    BOOL ok = CreateProcessW(
+        NULL,
+        (LPWSTR) toWide_CStr_(cstr_String(cmdLine)),
+        NULL,
+        NULL,
+        TRUE,
+        creationFlags,
+        envs,
+        !isEmpty_String(&d->workDir) ? toWide_CStr_(cstr_String(&d->workDir)) : NULL,
+        &d->startInfo,
+        &d->procInfo
+    );
+    if (ok) {
+        d->pid = d->procInfo.dwProcessId;
+        /* These were inherited by the child, so we won't need them any longer. */
+        CloseHandle(input_Pipe(&d->pout));
+        CloseHandle(input_Pipe(&d->perr));
+        CloseHandle(output_Pipe(&d->pin));
+        CloseHandle(d->procInfo.hThread);
+    }
+    else {
+        iWarning("[Process] spawn error: (%x) %s\n", GetLastError(), errorMessage_Windows_(GetLastError()));
+        d->procInfo.hProcess = INVALID_HANDLE_VALUE;
+        d->procInfo.hThread = INVALID_HANDLE_VALUE;
+    }
+    deinit_String(cmdLine);
+    return ok ? iTrue : iFalse;
 }
 
 iProcessId pid_Process(const iProcess *d) {
-    // if (d) {
-    //     return d->pid;
-    // }
-    // return getpid();
-    return 0;
+    if (d) {
+        return d->pid;
+    }
+    return GetCurrentProcessId();
 }
 
 iBool isRunning_Process(const iProcess *d) {
-    return iFalse;
-    // if (!d->pid) return iFalse;
-    // int status = 0;
-    // pid_t res = wait4(d->pid, &status, WNOHANG, NULL);
-    // if (res == 0) {
-    //     return iTrue;
-    // }
-    // iConstCast(iProcess *, d)->pid = 0;
-    // return iFalse;
+    if (!d->pid) return iFalse;
+    if (!exists_Process(d->pid)) {
+        iConstCast(iProcess *, d)->pid = 0;
+        return iFalse;
+    }
+    return iTrue;
+}
+
+int exitStatus_Process(const iProcess *d) {
+    return d->exitStatus;
 }
 
 void waitForFinished_Process(iProcess *d) {
-    // if (!d->pid) return;
-    // waitpid(d->pid, NULL, 0);
-    // d->pid = 0;
+    if (d->pid) {
+        DWORD exitCode = 0;
+        WaitForSingleObject(d->procInfo.hProcess, INFINITE);
+        GetExitCodeProcess(d->procInfo.hProcess, &exitCode);
+        d->exitStatus = exitCode;
+        d->pid = 0;
+    }
 }
 
-// static iString *readFromPipe_(int fd, iString *readChars) {
-//     char buf[4096];
-//     struct pollfd pfd = {.fd = fd, .events = POLLIN};
-//     while (poll(&pfd, 1, 0) == 1) { // non-blocking
-//         if (pfd.revents & POLLIN) {
-//             ssize_t num = read(fd, buf, sizeof(buf));
-//             if (num > 0) {
-//                 appendData_Block(&readChars->chars, buf, num);
-//             }
-//             else break;
-//         }
-//         else break;
-//     }
-//     return readChars;
-// }
-
 size_t writeInput_Process(iProcess *d, const iBlock *data) {
-    return 0;
+    const char *ptr = constBegin_Block(data);
+    DWORD remain = size_Block(data);
+    while (remain) {
+        DWORD num = 0;
+        if (!WriteFile(input_Pipe(&d->pin), ptr, remain, &num, NULL)) {
+            break;
+        }
+        ptr += num;
+        remain -= num;
+    }
+    return size_Block(data) - remain;
+}
+
+static iBlock *readFromPipe_(HANDLE pipe, iBlock *readChars) {
+    char buf[4096];
+    DWORD num = 0;
+    while (ReadFile(pipe, buf, sizeof(buf), &num, NULL)) {
+        appendData_Block(readChars, buf, num);
+    }
+    return readChars;
 }
 
 iBlock *readOutput_Process(iProcess *d) {
-    // return readFromPipe_(output_Pipe(&d->pout), new_String());
-    return new_Block(0);
+    return readFromPipe_(output_Pipe(&d->pout), new_Block(0));
 }
 
 iBlock *readError_Process(iProcess *d) {
-    // return readFromPipe_(output_Pipe(&d->perr), new_String());
-    return new_Block(0);
-}
-
-iBlock *readOutputUntilClosed_Process(iProcess *d) {
-    return new_Block(0);
+    return readFromPipe_(output_Pipe(&d->perr), new_Block(0));
 }
 
 void kill_Process(iProcess *d) {
-    // if (d->pid) {
-    //     kill(d->pid, SIGTERM);
-    // }
+    if (d->pid) {
+        TerminateProcess(d->procInfo.hProcess, (UINT) -1);
+    }
+}
+
+iBlock *readOutputUntilClosed_Process(iProcess *d) {    
+    iBlock *output = new_Block(0);
+    if (!d->pid) {
+        return output;
+    }
+    HANDLE fd = output_Pipe(&d->pout);
+    //DWORD mode = PIPE_WAIT;
+    //SetNamedPipeHandleState(fd, &mode, NULL, NULL); /* blocking mode */
+    CloseHandle(input_Pipe(&d->pin)); /* no more input */
+    for (;;) {
+        char buf[0x20000];
+        DWORD len = 0;
+        if (ReadFile(fd, buf, sizeof(buf), &len, NULL)) {
+            appendData_Block(output, buf, len);
+            if (len > 0) {
+                continue;
+            }
+            else {
+                break;
+            }
+        }
+        const DWORD err = GetLastError();
+        //iDebug("error (%x) %s\n", err, errorMessage_Windows_(err));
+        if (err == ERROR_PIPE_NOT_CONNECTED || err == ERROR_BROKEN_PIPE) {
+            break;
+        }
+    }
+    iString str;
+    initBlock_String(&str, output);
+    deinit_String(&str);
+    return output;
+}
+
+iBool exists_Process(iProcessId pid) {
+    if (!pid) return iFalse;
+    HANDLE proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (proc) {
+        CloseHandle(proc);
+        return iTrue;
+    }
+    return iFalse;
 }
