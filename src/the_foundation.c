@@ -36,10 +36,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include <locale.h>
 
 #if defined (iPlatformAndroid)
-#   include <android/log.h>
+#  include <android/log.h>
 #endif
 
 #if defined (iPlatformWindows)
+#  define WIN32_LEAN_AND_MEAN
+#  include <Windows.h>
+#  include "platform/win32/wide.h"
 void init_Windows_(void);
 void deinit_Windows_(void);
 #endif
@@ -107,6 +110,15 @@ void printMessage_Foundation(FILE *output, const char *format, ...) {
     vprintf_Block(&msg, format, args);
     va_end(args);
     __android_log_print(ANDROID_LOG_DEBUG, "tfdn", "%s", cstr_Block(&msg));
+#elif defined (iPlatformWindows)
+    iUnused(output);
+    iBlock msg;
+    init_Block(&msg, 0);
+    va_list args;
+    va_start(args, format);
+    vprintf_Block(&msg, format, args);
+    va_end(args);
+    OutputDebugStringW(toWide_CStr_(cstr_Block(&msg)));
 #else
     va_list args;
     va_start(args, format);
