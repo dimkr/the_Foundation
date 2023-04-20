@@ -34,7 +34,11 @@ iMutex mtx_; /* avoid pipe issues */
 
 static iThreadResult run_(iThread *d) {
     iStringList *args = newStringsCStr_StringList(
-        "/bin/cat", 
+#if defined (iPlatformWindows)
+        "c:\\msys64\\usr\\bin\\ls.exe",
+#else
+        "/bin/cat",
+#endif
         NULL
     );
     iString inputData;
