@@ -74,21 +74,30 @@ int main(int argc, char *argv[]) {
     init_Foundation();
     /* Test GUI launch. */ {
         iProcess *proc = new_Process();
-        setArguments_Process(proc, iClob(newStringsCStr_StringList("c:\\windows\\notepad.exe", NULL)));
+        setArguments_Process(proc, collect_StringList(newStringsCStr_StringList(
+#if defined (iPlatformWindows)
+            "c:\\windows\\notepad.exe",
+#elif defined (iPlatformApple)
+            "/System/Applications/TextEdit.app/Contents/MacOS/TextEdit",                                  
+#endif
+            NULL)));
         //start_Process(proc);
         waitForFinished_Process(proc);
         iRelease(proc);
     }
     /* Test arguments and environment. */ {
         iProcess *proc = new_Process();
-        setArguments_Process(proc,
-                             iClob(newStringsCStr_StringList(
-                                 "c:\\msys64\\usr\\bin\\printenv.exe", NULL)));
+        setArguments_Process(proc, collect_StringList(newStringsCStr_StringList(
+#if defined (iPlatformWindows)
+            "c:\\msys64\\usr\\bin\\printenv.exe",
+#else
+            "/usr/bin/printenv",
+#endif
+            NULL)));
         setEnvironment_Process(proc,
                                collect_StringList(newStringsCStr_StringList(
                                    "TESTVALUE=Keränen", "OTHER=something with space", NULL)));
-        if (start_Process(proc))
-        {
+        if (start_Process(proc)) {
             waitForFinished_Process(proc);
             iBlock *out = collect_Block(readOutput_Process(proc));
             iString *outs = collect_String(newBlock_String(out));
