@@ -30,6 +30,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include <the_Foundation/thread.h>
 #include <the_Foundation/math.h>
 
+#define TEST_MULTITHREAD 0
+
+#if TEST_MULTITHREAD
 iMutex mtx_; /* avoid pipe issues */
 
 static iThreadResult run_(iThread *d) {
@@ -64,10 +67,39 @@ static iThreadResult run_(iThread *d) {
     iRelease(args);
     return 0;
 }
+#endif
 
 int main(int argc, char *argv[]) {
     iUnused(argc, argv);    
     init_Foundation();
+    /* Test GUI launch. */ {
+        iProcess *proc = new_Process();
+        setArguments_Process(proc, iClob(newStringsCStr_StringList("c:\\windows\\notepad.exe", NULL)));
+        //start_Process(proc);
+        waitForFinished_Process(proc);
+        iRelease(proc);
+    }
+    /* Test arguments and environment. */ {
+        iProcess *proc = new_Process();
+        setArguments_Process(proc,
+                             iClob(newStringsCStr_StringList(
+                                 "c:\\msys64\\usr\\bin\\printenv.exe", NULL)));
+        setEnvironment_Process(proc,
+                               collect_StringList(newStringsCStr_StringList(
+                                   "TESTVALUE=Keränen", "OTHER=something with space", NULL)));
+        if (start_Process(proc))
+        {
+            waitForFinished_Process(proc);
+            iBlock *out = collect_Block(readOutput_Process(proc));
+            iString *outs = collect_String(newBlock_String(out));
+            printf("Child environment:\n%s\n", cstrLocal_String(outs));
+        }
+        else {
+            printf("Failed to start\n");
+        }
+        iRelease(proc);
+    }
+#if TEST_MULTITHREAD
     init_Mutex(&mtx_);
     iThread *thds[8];
     iForIndices(i, thds) {
@@ -77,7 +109,8 @@ int main(int argc, char *argv[]) {
     iForIndices(i, thds) {
         join_Thread(thds[i]);
         iRelease(thds[i]);
-    }    
+    }
+#endif
     deinit_Foundation();
     return 0;
 }

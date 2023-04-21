@@ -44,6 +44,7 @@ struct Impl_Process {
     iPipe pin;
     iPipe pout;
     iPipe perr;
+    iBlock *bufOut;
     PROCESS_INFORMATION procInfo;
     STARTUPINFOW startInfo;
     int exitStatus;
@@ -60,6 +61,7 @@ void init_Process(iProcess *d) {
     init_Pipe(&d->pin);
     init_Pipe(&d->pout);
     init_Pipe(&d->perr);
+    d->bufOut = new_Block(0);
     iZap(d->procInfo);
     d->startInfo = (STARTUPINFOW){
         .cb         = sizeof(d->startInfo),
@@ -93,6 +95,7 @@ void deinit_Process(iProcess *d) {
     deinit_Pipe(&d->pin);
     deinit_Pipe(&d->pout);
     deinit_Pipe(&d->perr);
+    delete_Block(d->bufOut);
 }
 
 void setArguments_Process(iProcess *d, const iStringList *args) {
@@ -132,24 +135,24 @@ iBool start_Process(iProcess *d) {
             delete_String(arg);
         }
     }
-    printf("cmdline: %s\n", cstr_String(cmdLine));
     /* The environment. */
     if (!isEmpty_StringList(d->envMods)) {
-        //iBlock *env = collect_Block(new_Block(0));
-        /* TODO: Compose the new environment strings */
-#if 0
-        for (const char *envList = GetEnvironmentStringsA(); *envList; ) {
-            size_t len = strlen(envList);
-            pushBack_Array(env, e);
+        iBlock *envUtf16 = collect_Block(new_Block(0));
+        for (const wchar_t *e = GetEnvironmentStringsW(); *e; ) {
+            size_t len = wcslen(e);
+            appendData_Block(envUtf16, e, (len + 1) * 2);
+            e += len + 1;
         }
         iConstForEach(StringList, e, d->envMods) {
-            pushBack_Array(env, &(const char *){ cstr_String(e.value) });
+            iBlock *wide = toUtf16_String(e.value);
+            append_Block(envUtf16, wide);
+            delete_Block(wide);
+            appendData_Block(envUtf16, &(wchar_t){ 0 }, 2);
         }
-        pushBack_Array(env, &(const char *){ NULL });
-        envs = (LPVOID) data_Array(env);
-#endif
+        appendData_Block(envUtf16, (wchar_t[]){ 0, 0 }, 4);
+        envs = (LPVOID) data_Block(envUtf16);
     }
-    DWORD creationFlags = 0;
+    DWORD creationFlags = CREATE_UNICODE_ENVIRONMENT;
     BOOL ok = CreateProcessW(
         NULL,
         (LPWSTR) toWide_CStr_(cstr_String(cmdLine)),
@@ -201,10 +204,14 @@ int exitStatus_Process(const iProcess *d) {
 
 void waitForFinished_Process(iProcess *d) {
     if (d->pid) {
+        iBlock *out = readOutputUntilClosed_Process(d);
+        append_Block(d->bufOut, out);
+        delete_Block(out);
         DWORD exitCode = 0;
-        WaitForSingleObject(d->procInfo.hProcess, INFINITE);
-        GetExitCodeProcess(d->procInfo.hProcess, &exitCode);
-        d->exitStatus = exitCode;
+        BOOL ok = GetExitCodeProcess(d->procInfo.hProcess, &exitCode);
+        if (ok) {
+            d->exitStatus = exitCode;
+        }
         d->pid = 0;
     }
 }
@@ -233,7 +240,9 @@ static iBlock *readFromPipe_(HANDLE pipe, iBlock *readChars) {
 }
 
 iBlock *readOutput_Process(iProcess *d) {
-    return readFromPipe_(output_Pipe(&d->pout), new_Block(0));
+    iBlock *buf = copy_Block(d->bufOut);
+    clear_Block(d->bufOut);
+    return readFromPipe_(output_Pipe(&d->pout), buf);
 }
 
 iBlock *readError_Process(iProcess *d) {
@@ -246,14 +255,13 @@ void kill_Process(iProcess *d) {
     }
 }
 
-iBlock *readOutputUntilClosed_Process(iProcess *d) {    
-    iBlock *output = new_Block(0);
+iBlock *readOutputUntilClosed_Process(iProcess *d) {
+    iBlock *output = copy_Block(d->bufOut);
+    clear_Block(d->bufOut);
     if (!d->pid) {
         return output;
     }
     HANDLE fd = output_Pipe(&d->pout);
-    //DWORD mode = PIPE_WAIT;
-    //SetNamedPipeHandleState(fd, &mode, NULL, NULL); /* blocking mode */
     CloseHandle(input_Pipe(&d->pin)); /* no more input */
     for (;;) {
         char buf[0x20000];
