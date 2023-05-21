@@ -246,7 +246,7 @@ else ()
     set (iPlatformOther YES)
     set (SOURCES ${SOURCES} src/platform/generic.c)
 endif ()
-if (NOT iPlatformWindows) # POSIX
+if (NOT iPlatformWindows) # POSIX platform
     list (APPEND HEADERS
         src/platform/posix/pipe.h
     )
@@ -258,7 +258,7 @@ if (NOT iPlatformWindows) # POSIX
         src/platform/posix/service.c
         src/platform/posix/socket.c
     )
-else () # WIN32
+else () # Win32 platform
     list (APPEND HEADERS
         src/platform/win32/msdirent.h
     )
@@ -269,19 +269,19 @@ else () # WIN32
         src/platform/win32/process.c
         src/platform/win32/service.c
         src/platform/win32/socket.c
+    )
+endif ()
+if (iPlatformWindows OR iPlatformMsys)
+    list (APPEND SOURCES
         src/platform/win32/wide.c
         src/platform/win32/wide.h
     )
 endif ()
 if (TFDN_ENABLE_WIN32_FILE_API AND (iPlatformWindows OR iPlatformMsys))
-    list (APPEND SOURCES
-        src/platform/win32/file.c
-    )
+    list (APPEND SOURCES src/platform/win32/file.c)
     set (iHaveWin32FileAPI YES)
 else ()
-    list (APPEND SOURCES
-        src/file.c
-    )
+    list (APPEND SOURCES src/file.c)
 endif ()
 if (PCRE2_FOUND OR PCRE_FOUND)
     set (iHaveRegExp YES)
