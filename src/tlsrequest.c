@@ -72,9 +72,9 @@ static iBool readAllFromBIO_(BIO *bio, iBlock *out) {
 /*----------------------------------------------------------------------------------------------*/
 
 iDeclareClass(CachedSession)
-    
+
 static const int maxSessionAge_CachedSession_ = 10 * 60; /* seconds */
-    
+
 struct Impl_CachedSession {
     iObject          object;
     iBlock           pemSession;
@@ -480,7 +480,19 @@ iTlsCertificate *newSelfSignedRSA_TlsCertificate(
     }
     /* Valid until. */ {
         ASN1_TIME *notAfter = ASN1_TIME_new();
-        ASN1_TIME_set(notAfter, sinceEpoch_Date(&validUntil));
+        /* FIXME: This works correctly for UTC, but if the GMT offset is set, we assume
+           it means we are defining the time in the local time zone. That may not be a
+           valid assumption. */
+        if (validUntil.gmtOffsetSeconds == 0) {
+            ASN1_TIME_set_string(notAfter,
+                                 format_CStr("%04d%02d%02d%02d%02d%02dZ",
+                                             validUntil.year, validUntil.month,
+                                             validUntil.day, validUntil.hour,
+                                             validUntil.minute, validUntil.second));
+        }
+        else {
+            ASN1_TIME_set(notAfter, sinceEpoch_Date(&validUntil));
+        }
         X509_set1_notAfter(d->cert, notAfter);
         ASN1_TIME_free(notAfter);
     }
@@ -1012,7 +1024,7 @@ static iBool readIncoming_TlsRequest_(iTlsRequest *d) {
 
 static iThreadResult run_TlsRequest_(iThread *thread) {
     iTlsRequest *d = userData_Thread(thread);
-    /* Thread-local pointer to the current request so it can be accessed in the 
+    /* Thread-local pointer to the current request so it can be accessed in the
        verify callback. */
     iDebug("[TlsRequest] run_TlsRequest_: %zu bytes to send\n", size_Block(&d->sending));
     setCurrentRequestForThread_Context_(context_, d);
