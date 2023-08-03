@@ -2,6 +2,7 @@
 
 ## 1.7
 * Native Windows build using MinGW64: Winsock2 for sockets, IP addresses.
+* Minimum CMake version requirement is now 3.5.
 
 ## 1.6.1
 * Library SOVERSION uses the major version number only. Minor versions do not break ABI compatibility.

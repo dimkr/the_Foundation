@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.1)
+cmake_minimum_required (VERSION 3.5)
 
 project (the_Foundation VERSION 1.7.0 LANGUAGES C)
 set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
