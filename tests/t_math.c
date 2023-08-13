@@ -131,6 +131,7 @@ int main(int argc, char **argv) {
             float f[4];
             store_F4(init_F4(1, 2, 3, 4), f);
             printf("stored: %f %f %f %f\n", f[0], f[1], f[2], f[3]);
+            print_("initv4", initv_F4(f));
         }
         print_("zxy", zxy_F4(init_F4(1, 2, 3, 4)));
         iFloat4 a = init_F4(1.5, -2, 3.5, -4);

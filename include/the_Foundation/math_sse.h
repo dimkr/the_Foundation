@@ -60,7 +60,8 @@ iLocalDef iFloat4 initiv_F4(const int *v) {
 }
 
 iLocalDef iFloat4 initv_F4(const float *v) {
-    return (iFloat4){ _mm_loadu_ps(v) };
+    __m128 m = _mm_loadu_ps(v);
+    return (iFloat4){ _mm_shuffle_ps(m, m, _MM_SHUFFLE(2, 1, 0, 3)) };
 }
 
 iLocalDef iFloat4 initmm_F4(__m128 m) {
