@@ -27,6 +27,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 
 #include "the_Foundation/stringlist.h"
 #include "the_Foundation/stringarray.h"
+#include "the_Foundation/stream.h"
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -284,6 +285,25 @@ iString *joinCStr_StringList(const iStringList *d, const char *delim) {
         append_String(joined, i.value);
     }
     return joined;
+}
+
+void serialize_StringList(const iStringList *d, iStream *outs) {
+    writeU32_Stream(outs, size_StringList(d));
+    iConstForEach(StringList, i, d) {
+        serialize_String(i.value, outs);
+    }
+}
+
+void deserialize_StringList(iStringList *d, iStream *ins) {
+    clear_StringList(d);
+    uint32_t n = readU32_Stream(ins);
+    while (n-- && !atEnd_Stream(ins)) {
+        iString s;
+        init_String(&s);
+        deserialize_String(&s, ins);
+        pushBack_StringList(d, &s);
+        deinit_String(&s);
+    }
 }
 
 /*-------------------------------------------------------------------------------------*/
