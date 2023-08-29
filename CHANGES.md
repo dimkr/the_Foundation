@@ -4,7 +4,7 @@
 * Native Windows build using MinGW64: Winsock2 for sockets, IP addresses.
 * Minimum CMake version requirement is now 3.5.
 * SSE: Fixed incorrect order of components when calling `initv_F4`.
-* StringArray: Added serialization methods.
+* StringArray: Added serialization methods, reverse const iterator.
 * StringList: Added serialization methods.
 
 ## 1.6.1
