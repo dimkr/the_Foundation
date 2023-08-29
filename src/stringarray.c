@@ -201,3 +201,12 @@ void init_StringArrayConstIterator(iStringArrayConstIterator *d, const iStringAr
 void next_StringArrayConstIterator(iStringArrayConstIterator *d) {
     next_ArrayConstIterator(&d->iter);
 }
+
+void init_StringArrayReverseConstIterator(iStringArrayReverseConstIterator *d,
+                                          const iStringArray *array) {
+    init_ArrayReverseConstIterator(&d->iter, &array->strings);
+}
+
+void next_StringArrayReverseConstIterator(iStringArrayReverseConstIterator *d) {
+    next_ArrayReverseConstIterator(&d->iter);
+}
