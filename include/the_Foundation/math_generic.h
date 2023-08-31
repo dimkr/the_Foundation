@@ -614,13 +614,16 @@ iLocalDef iFloat4 row_Mat4(const iMat4 *d, int row) {
     return init_F4(d->col[0].v[row], d->col[1].v[row], d->col[2].v[row], d->col[3].v[row]);
 }
 
-iLocalDef void translate_Mat4(iMat4 *d, iFloat3 v) {
-    addv_F4(&d->col[3], init_F4(x_F3(v), y_F3(v), z_F3(v), 0.0f));
+iLocalDef void initTranslate_Mat4(iMat4 *d, iFloat3 v) {
+    d->col[0] = init_F4(1, 0, 0, 0);
+    d->col[1] = init_F4(0, 1, 0, 0);
+    d->col[2] = init_F4(0, 0, 1, 0);
+    d->col[3] = init_F4(x_F3(v), y_F3(v), z_F3(v), 1);
 }
 
-iLocalDef void initTranslate_Mat4(iMat4 *d, iFloat3 v) {
-    init_Mat4(d);
-    translate_Mat4(d, v);
+iLocalDef void translate_Mat4(iMat4 *d, iFloat3 v) {
+    iMat4 t; initTranslate_Mat4(&t, v);
+    mul_Mat4(d, &t);
 }
 
 iLocalDef void initScale_Mat4(iMat4 *d, iFloat3 v) {
