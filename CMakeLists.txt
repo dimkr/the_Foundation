@@ -370,7 +370,7 @@ if (IOS)
 endif ()
 
 # Generate a simple pkgconfig file.
-if (OPENSSL_FOUND)
+if (TFDN_ENABLE_TLSREQUEST AND OPENSSL_FOUND)
     foreach (flg ${OPENSSL_LDFLAGS})
         set (OPENSSL_PC_LDFLAGS "${OPENSSL_PC_LDFLAGS} ${flg}")
     endforeach (flg)
