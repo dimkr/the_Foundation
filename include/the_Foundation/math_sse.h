@@ -374,7 +374,6 @@ void transpose_Mat4 (iMat4 *);
 iLocalDef void load_Mat4(iMat4 *d, const float *v) {
     for (int i = 0; i < 4; ++i) {
         d->col[i] = initv_F4(v + 4*i).m;
-        d->col[i] = _mm_shuffle_ps(d->col[i], d->col[i], _MM_SHUFFLE(2, 1, 0, 3));
     }
 }
 
