@@ -393,7 +393,9 @@ endif ()
 if (ANDROID AND TFDN_ENABLE_DEBUG_OUTPUT)
     target_link_libraries (${TFDN_LIB} PUBLIC log)
 endif ()
-target_link_libraries (${TFDN_LIB} PUBLIC m)
+if (NOT MINGW)
+	target_link_libraries (${TFDN_LIB} PUBLIC m)
+endif ()
 tfdn_link_depends (${TFDN_LIB} ${TFDN_DEPENDS_LINK_MODE})
 
 # Installation.
