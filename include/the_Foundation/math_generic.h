@@ -664,6 +664,8 @@ iLocalDef iFloat3 mulF3_Mat4(const iMat4 *d, const iFloat3 v) {
     return divf_F3(initv_F3(v4.v), v4.value.w);
 }
 
+/*----------------------------------------------------------------------------------------------*/
+
 iDeclareType(Mat3)
 
 struct Impl_Mat3 {
@@ -676,7 +678,8 @@ iLocalDef void init_Mat3(iMat3 *d) {
     d->col[2] = init_F3(0, 0, 1);
 }
 
-void store_Mat3 (const iMat3 *, float *v9);
+void store_Mat3         (const iMat3 *, float *v9);
+void initRotate_Mat3    (iMat3 *, iFloat3 axis, float degrees);
 
 iLocalDef void load_Mat3(iMat3 *d, const float *v9) {
     d->col[0] = initv_F3(v9    );
