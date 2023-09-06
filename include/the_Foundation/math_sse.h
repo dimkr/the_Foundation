@@ -388,14 +388,16 @@ iLocalDef void copy_Mat4(iMat4 *d, const iMat4 *other) {
 void    mul_Mat4    (iMat4 *, const iMat4 *b);
 iFloat4 row_Mat4    (const iMat4 *, int row);
 
-iLocalDef void translate_Mat4(iMat4 *d, iFloat3 v) {
-    d->col[3] = _mm_add_ps(d->col[3],
-                           /* Ensure w is really zero. */ _mm_move_ss(v.m, _mm_set_ss(0.0f)));
+iLocalDef void initTranslate_Mat4(iMat4 *d, iFloat3 v) {
+    d->col[0] = _mm_set_ps(0, 0, 1, 0);
+    d->col[1] = _mm_set_ps(0, 1, 0, 0);
+    d->col[2] = _mm_set_ps(1, 0, 0, 0);
+    d->col[3] = _mm_set_ps(z_F3(v), y_F3(v), x_F3(v), 1);
 }
 
-iLocalDef void initTranslate_Mat4(iMat4 *d, iFloat3 v) {
-    init_Mat4(d);
-    translate_Mat4(d, v);
+iLocalDef void translate_Mat4(iMat4 *d, iFloat3 v) {
+    iMat4 t; initTranslate_Mat4(&t, v);
+    mul_Mat4(d, &t);
 }
 
 iLocalDef void initScale_Mat4(iMat4 *d, iFloat3 v) {
@@ -461,6 +463,8 @@ iLocalDef iFloat3 mulF3_Mat3(const iMat3 *d, iFloat3 v) {
                    dot_F3(initmm_F3(d->col[1]), v),
                    dot_F3(initmm_F3(d->col[2]), v));
 }
+
+void initRotate_Mat3(iMat3 *d, iFloat3 axis, float degrees);
 
 /*-------------------------------------------------------------------------------------*/
 
