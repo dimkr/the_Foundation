@@ -407,15 +407,17 @@ iLocalDef void initScale_Mat4(iMat4 *d, iFloat3 v) {
 }
 
 iLocalDef void scale_Mat4(iMat4 *d, iFloat3 v) {
-    d->col[0] = _mm_mul_ps(d->col[0], _mm_set_ps(1, 1, x_F3(v), 1));
-    d->col[1] = _mm_mul_ps(d->col[1], _mm_set_ps(1, y_F3(v), 1, 1));
-    d->col[2] = _mm_mul_ps(d->col[2], _mm_set_ps(z_F3(v), 1, 1, 1));
+    iMat4 s; initScale_Mat4(&s, v);
+    mul_Mat4(d, &s);
 }
 
 iLocalDef void scalef_Mat4(iMat4 *d, float v) {
-    d->col[0] = _mm_mul_ps(d->col[0], _mm_set_ps(1, 1, v, 1));
-    d->col[1] = _mm_mul_ps(d->col[1], _mm_set_ps(1, v, 1, 1));
-    d->col[2] = _mm_mul_ps(d->col[2], _mm_set_ps(v, 1, 1, 1));
+    iMat4 s;
+    s.col[0] = _mm_set_ps(0, 0, v, 0);
+    s.col[1] = _mm_set_ps(0, v, 0, 0);
+    s.col[2] = _mm_set_ps(v, 0, 0, 0);
+    s.col[3] = _mm_set_ps(0, 0, 0, 1);
+    mul_Mat4(d, &s);
 }
 
 void initRotate_Mat4(iMat4 *d, iFloat3 axis, float degrees);

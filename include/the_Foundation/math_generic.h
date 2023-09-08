@@ -634,9 +634,17 @@ iLocalDef void initScale_Mat4(iMat4 *d, iFloat3 v) {
 }
 
 iLocalDef void scale_Mat4(iMat4 *d, iFloat3 v) {
-    d->col[0].value.x *= v.value.x;
-    d->col[1].value.y *= v.value.y;
-    d->col[2].value.z *= v.value.z;
+    iMat4 s; initScale_Mat4(&s, v);
+    mul_Mat4(d, &s);
+}
+
+iLocalDef void scalef_Mat4(iMat4 *d, float v) {
+    iMat4 s;
+    s.col[0] = init_F4(v, 0, 0, 0);
+    s.col[1] = init_F4(0, v, 0, 0);
+    s.col[2] = init_F4(0, 0, v, 0);
+    s.col[3] = init_F4(0, 0, 0, 1);
+    mul_Mat4(d, &s);
 }
 
 void initRotate_Mat4(iMat4 *d, iFloat3 axis, float degrees);
@@ -644,12 +652,6 @@ void initRotate_Mat4(iMat4 *d, iFloat3 axis, float degrees);
 iLocalDef void rotate_Mat4(iMat4 *d, iFloat3 axis, float degrees) {
     iMat4 rot; initRotate_Mat4(&rot, axis, degrees);
     mul_Mat4(d, &rot);
-}
-
-iLocalDef void scalef_Mat4(iMat4 *d, float v) {
-    d->col[0].value.x *= v;
-    d->col[1].value.y *= v;
-    d->col[2].value.z *= v;
 }
 
 iLocalDef iFloat4 mulF4_Mat4(const iMat4 *d, const iFloat4 v) {
