@@ -375,6 +375,10 @@ iLocalDef iFloat3 shuffle_F3(const iFloat3 d, int x, int y, int z) {
     return init_F3(d.v[x], d.v[y], d.v[z]);
 }
 
+iLocalDef iFloat3 xy_F3(const iFloat3 d) {
+    return init_F3(d.value.x, d.value.y, 0);
+}
+
 iLocalDef iFloat3 xyz_F3(const iFloat3 d) {
     return init_F3(d.value.x, d.value.y, d.value.z);
 }
