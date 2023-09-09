@@ -266,6 +266,11 @@ iLocalDef iFloatVec3 values_F3(const iFloat3 d) {
 
 #define iFloat3Shuffle3(d, X, Y, Z)  (iFloat3){ _mm_shuffle_ps((d).m, (d).m, _MM_SHUFFLE(Z, Y, X, 0)) }
 
+iLocalDef iFloat3 xy_F3(const iFloat3 d) {
+    __m128 t = _mm_move_ss(d.m, _mm_set_ss(0));
+    return (iFloat3){ _mm_shuffle_ps(t, t, _MM_SHUFFLE(0, 2, 1, 0)) };
+}
+
 iLocalDef iFloat3 yzx_F3(const iFloat3 d) {
     return iFloat3Shuffle3(d, 2, 3, 1);
 }
