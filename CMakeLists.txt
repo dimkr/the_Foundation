@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.5)
 
-project (the_Foundation VERSION 1.7.0 LANGUAGES C)
+project (the_Foundation VERSION 1.7.1 LANGUAGES C)
 set (CMAKE_PROJECT_DESCRIPTION "Opinionated C11 library for low-level functionality")
 
 include (CheckIncludeFile)
@@ -384,17 +384,17 @@ configure_file (
 # Dependencies.
 if (NOT iHaveC11Threads AND NOT ANDROID)
     # phtread is exposed via header file usage, so it must be linked publicly.
-	if (MINGW)
-		target_link_libraries (${TFDN_LIB} PRIVATE libwinpthread.a)
-	else ()
-		target_link_libraries (${TFDN_LIB} PUBLIC pthread)
-	endif ()
+        if (MINGW)
+                target_link_libraries (${TFDN_LIB} PRIVATE libwinpthread.a)
+        else ()
+                target_link_libraries (${TFDN_LIB} PUBLIC pthread)
+        endif ()
 endif ()
 if (ANDROID AND TFDN_ENABLE_DEBUG_OUTPUT)
     target_link_libraries (${TFDN_LIB} PUBLIC log)
 endif ()
 if (NOT MINGW)
-	target_link_libraries (${TFDN_LIB} PUBLIC m)
+        target_link_libraries (${TFDN_LIB} PUBLIC m)
 endif ()
 tfdn_link_depends (${TFDN_LIB} ${TFDN_DEPENDS_LINK_MODE})
 
@@ -421,7 +421,7 @@ if (TFDN_ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
     )
     install (FILES ${CMAKE_CURRENT_BINARY_DIR}/${TFDN_LIB}ConfigVersion.cmake
-		DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${TFDN_LIB}
+                DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${TFDN_LIB}
     )
 endif ()
 

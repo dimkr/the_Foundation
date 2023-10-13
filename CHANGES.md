@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.1
+* String: Fixed issue with the `mid` method when starting position is at or past the end.
+
 ## 1.7
 * Native Windows build using MinGW64: Winsock2 for sockets, IP addresses.
 * Minimum CMake version requirement is now 3.5.

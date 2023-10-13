@@ -475,7 +475,7 @@ size_t size_String(const iString *d) {
 iString *mid_String(const iString *d, size_t charStartPos, size_t charCount) {
     if (charCount == 0) return new_String();
     const char *chars = constData_Block(&d->chars);
-    iRanges range = { 0, size_Block(&d->chars) };
+    iRanges range = { size_Block(&d->chars), size_Block(&d->chars) };
     size_t pos = 0;
     iConstForEach(String, i, d) {
         if (pos > charStartPos && pos == charStartPos + charCount) {
@@ -497,7 +497,7 @@ iString *mid_String(const iString *d, size_t charStartPos, size_t charCount) {
 iString *upper_String(const iString *d) {
     return upperLang_String(d, currentLocaleLanguage_());
 }
-    
+
 iString *upperLang_String(const iString *d, const char *langCode) {
     size_t len = 0;
     uint8_t *str = u8_toupper((const uint8_t *) cstr_String(d),
