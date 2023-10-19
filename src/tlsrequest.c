@@ -260,6 +260,7 @@ void init_Context(iContext *d) {
     SSL_CTX_set_verify(d->ctx, SSL_VERIFY_PEER, verifyCallback_Context_);
     /* Bug workarounds: https://www.openssl.org/docs/manmaster/man3/SSL_CTX_set_options.html */
     SSL_CTX_set_options(d->ctx, SSL_OP_ALL);
+    SSL_CTX_set_min_proto_version(d->ctx, TLS1_2_VERSION);
     init_Mutex(&d->cacheMutex);
     d->cache = new_StringHash();
     SSL_CTX_set_session_cache_mode(d->ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
