@@ -452,7 +452,7 @@ iTlsCertificate *newSelfSignedRSA_TlsCertificate(
     d->pkey = EVP_PKEY_new();
     EVP_PKEY_assign_RSA(d->pkey, rsa);
     X509_set_pubkey(d->cert, d->pkey);
-#if !defined (LIBRESSL_VERSION_NUMBER)
+#if !defined (LIBRESSL_VERSION_NUMBER) || LIBRESSL_VERSION_NUMBER < 0x3060000fL
     /* Random serial number. */ {
         BIGNUM *big = BN_new();
         if (BN_rand(big, 64, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY)) {
@@ -554,7 +554,7 @@ void validUntil_TlsCertificate(const iTlsCertificate *d, iDate *untilDate_out) {
     iZap(*untilDate_out);
     if (d->cert) {
         struct tm time;
-#if defined (LIBRESSL_VERSION_NUMBER)
+#if defined (LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x3060000fL
         const ASN1_TIME *notAfter = X509_get0_notAfter(d->cert);
         ASN1_time_parse((const char *) ASN1_STRING_get0_data(notAfter),
                         ASN1_STRING_length(notAfter),
