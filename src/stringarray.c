@@ -166,7 +166,7 @@ iString *joinCStr_StringArray(const iStringArray *d, const char *delim) {
 }
 
 void serialize_StringArray(const iStringArray *d, iStream *outs) {
-    writeU32_Stream(outs, size_StringArray(d));
+    writeU32_Stream(outs, (uint32_t) size_StringArray(d));
     iConstForEach(StringArray, i, d) {
         serialize_String(i.value, outs);
     }

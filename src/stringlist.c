@@ -288,7 +288,7 @@ iString *joinCStr_StringList(const iStringList *d, const char *delim) {
 }
 
 void serialize_StringList(const iStringList *d, iStream *outs) {
-    writeU32_Stream(outs, size_StringList(d));
+    writeU32_Stream(outs, (uint32_t) size_StringList(d));
     iConstForEach(StringList, i, d) {
         serialize_String(i.value, outs);
     }
