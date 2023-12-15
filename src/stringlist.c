@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</small>
 #include <stdlib.h>
 #include <stdarg.h>
 
-#define iStringListMaxStringsPerNode    1024
+#define iStringListMaxStringsPerNode    512    /* TODO: could be a per-list dynamic setting */
 
 iDeclareType(StringListNode)
 
@@ -101,6 +101,7 @@ void clear_StringList(iStringList *d) {
 static iStringListNode *locateNode_StringList_(const iStringList *d, size_t pos, size_t *start_out) {
     iAssert(pos < d->size);
     if (isEmpty_List(&d->list)) {
+        *start_out = iInvalidPos;
         return NULL;
     }
     const iBool forwards = (pos < d->size / 2);
@@ -330,6 +331,11 @@ void init_StringListIterator(iStringListIterator *d, iStringList *list) {
 void next_StringListIterator(iStringListIterator *d) {
     d->pos++;
     d->nodePos++;
+    if (!d->node || d->pos >= d->list->size) {
+        d->value = NULL;
+        return;
+    }
+    iAssert(d->nodePos <= size_StringListNode_(d->node));
     if (d->nodePos == size_StringListNode_(d->node)) {
         d->nodePos = 0;
         d->node = next_StringListNode_(d->node);
@@ -339,6 +345,25 @@ void next_StringListIterator(iStringListIterator *d) {
         }
     }
     updateValue_StringListIterator(d);
+}
+
+void remove_StringListIterator(iStringListIterator *d) {
+    delete_String(take_StringListIterator(d));
+}
+
+iString *take_StringListIterator(iStringListIterator *d) {
+    iString *taken = take_StringList(d->list, d->pos);
+    if (d->list->size == 0) {
+        d->node = NULL;
+    }
+    else {
+        size_t start;
+        d->pos--;
+        d->node = locateNode_StringList_(d->list, d->pos < size_StringList(d->list) ? d->pos : 0,
+                                         &start);
+        d->nodePos = d->pos - start;
+    }
+    return taken;
 }
 
 void init_StringListConstIterator(iStringListConstIterator *d, const iStringList *list) {

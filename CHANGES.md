@@ -2,6 +2,7 @@
 
 ## 1.7.1
 * String: Fixed issue with the `mid` method when starting position is at or past the end.
+* StringList: Implemented missing iterator `remove` and `take` methods.
 * TlsRequest: TLS 1.2 is the minimum accepted protocol version.
 
 ## 1.7
