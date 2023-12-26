@@ -966,6 +966,10 @@ iString *quote_String(const iString *d, iBool numericUnicode) {
 }
 
 iString *unquote_String(const iString *d) {
+    return unquoteDelim_String(d, '"');
+}
+
+iString *unquoteDelim_String(const iString *d, iChar delim) {
     iString *unquot = new_String();
     iConstForEach(String, i, d) {
         const iChar ch = i.value;
@@ -984,8 +988,8 @@ iString *unquote_String(const iString *d) {
             else if (esc == 't') {
                 appendChar_String(unquot, '\t');
             }
-            else if (esc == '"') {
-                appendChar_String(unquot, '"');
+            else if (esc == delim) {
+                appendChar_String(unquot, delim);
             }
             else if (esc == 'u') {
                 char digits[5];
@@ -1014,7 +1018,7 @@ iString *unquote_String(const iString *d) {
                 }
             }
             else {
-                iAssert(0);
+                iAssert(iFalse);
             }
         }
         else {
