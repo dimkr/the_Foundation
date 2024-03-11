@@ -304,6 +304,8 @@ iString *       quote_String    (const iString *, iBool numericUnicode);
 iString *       unquote_String  (const iString *); /* delimiter is `"` */
 iString *       unquoteDelim_String (const iString *, iChar delim); /* custom delimiter */
 
+void            setLocaleCharSet_String (const char *charSet); /* charset for initLocal, toLocal */
+
 const char *    format_CStr     (const char *format, ...);
 const char *    skipSpace_CStr  (const char *);
 
