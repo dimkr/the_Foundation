@@ -363,6 +363,7 @@ iLocalDef iBool endsWithCase_Rangecc(const iRangecc d, const char *cstr) {
     return endsWithSc_Rangecc(d, cstr, &iCaseInsensitive);
 }
 
+iBlock *        toLocal_Rangecc     (iRangecc);
 iStringList *   split_Rangecc       (iRangecc, const char *separator);
 void            trimStart_Rangecc   (iRangecc *);
 void            trimEnd_Rangecc     (iRangecc *);

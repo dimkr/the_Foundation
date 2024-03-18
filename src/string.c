@@ -901,6 +901,20 @@ int cmpCStrNSc_Rangecc(const iRangecc d, const char *cstr, size_t n, const iStri
     return cmp;
 }
 
+iBlock *toLocal_Rangecc(const iRangecc d) {
+    size_t len = 0;
+    char * str = u8_conv_to_encoding(localeCharSet_,
+                                    iconveh_question_mark,
+                                    (const uint8_t *) d.start,
+                                    size_Range(&d),
+                                    NULL,
+                                    NULL,
+                                    &len);
+    str = realloc(str, len + 1);
+    str[len] = 0;
+    return newPrealloc_Block(str, len, len + 1);
+}
+
 iStringList *split_Rangecc(const iRangecc d, const char *separator) {
     iStringList *parts = new_StringList();
     iRangecc range = iNullRange;
