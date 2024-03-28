@@ -375,6 +375,9 @@ if (TFDN_ENABLE_TLSREQUEST AND OPENSSL_FOUND)
         set (OPENSSL_PC_LDFLAGS "${OPENSSL_PC_LDFLAGS} ${flg}")
     endforeach (flg)
 endif ()
+if (iHaveSSE4_1)
+    set (TFDN_PC_SSEFLAG "-msse4.1")
+endif ()
 configure_file (
     the_Foundation.pc.in
     ${CMAKE_CURRENT_BINARY_DIR}/the_Foundation.pc
