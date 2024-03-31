@@ -157,6 +157,8 @@ iString *       upperLang_String    (const iString *, const char *langCode);
 iString *       lower_String        (const iString *);
 iString *       lowerLang_String    (const iString *, const char *langCode);
 iStringList *   split_String        (const iString *, const char *separator);
+iString *       concat_String       (const iString *, const iString *other);
+iString *       concatCStr_String   (const iString *, const char *other);
 iChar           first_String        (const iString *);
 iChar           last_String         (const iString *);
 iBlock *        toLocal_String      (const iString *);

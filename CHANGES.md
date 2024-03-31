@@ -2,7 +2,7 @@
 
 ## 1.7.1
 * PtrArray: Added `back`, `popBack`, `popFront` methods.
-* String: Added `quoteDelim` method.
+* String: Added `concat`, `concatCStr`, and `quoteDelim` methods.
 * String: Fixed issue with the `mid` method when starting position is at or past the end.
 * StringList: Implemented missing iterator `remove` and `take` methods.
 * TlsRequest: TLS 1.2 is the minimum accepted protocol version.

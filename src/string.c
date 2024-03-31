@@ -551,6 +551,18 @@ iStringList *split_String(const iString *d, const char *separator) {
     return split_Rangecc(range, separator);
 }
 
+iString *concat_String(const iString *d, const iString *other) {
+    iString *cat = copy_String(d);
+    append_String(cat, other);
+    return cat;
+}
+
+iString *concatCStr_String(const iString *d, const char *other) {
+    iString *cat = copy_String(d);
+    appendCStr_String(cat, other);
+    return cat;
+}
+
 iString *urlEncodeExclude_String(const iString *d, const char *excluded) {
     iString *enc = maybeUrlEncodeExclude_String(d, excluded);
     return enc ? enc : copy_String(d);
