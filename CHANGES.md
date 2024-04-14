@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.1
+* Fixed library version number in the CMakeLists file.
+
 ## 1.8 - 2024-04-14
 * PtrArray: Added `back`, `constBack`, `popBack`, and `popFront` methods.
 * String: Added `concat`, `concatCStr`, and `quoteDelim` methods.
