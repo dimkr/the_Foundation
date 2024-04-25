@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.2
+* XmlDocument: The `<?xml` header line is no longer required by the parser.
+
 ## 1.8.1
 * Fixed library version number in the CMakeLists file.
 
