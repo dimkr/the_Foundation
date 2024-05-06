@@ -6,7 +6,7 @@ if (NOT IOS AND NOT ANDROID)
     pkg_check_modules (PCRE libpcre)     # Regular expressions
     pkg_check_modules (PCRE2 libpcre2-8) # this is preferred, if found
     if (TFDN_ENABLE_WEBREQUEST)
-        pkg_check_modules (CURL libcurl)		
+        pkg_check_modules (CURL libcurl)
     else ()
         set (CURL_FOUND NO)
         set (iHaveCurl NO)
@@ -50,14 +50,14 @@ if (NOT IOS AND NOT ANDROID)
         set (UNISTRING_INCLUDE_DIRS ${UNISTRING_DIR}/include)
         set (UNISTRING_LIBRARIES -L${UNISTRING_DIR}/lib unistring)
     endif ()
-	if (MINGW)
-		# Switch to static linking of the dependencies to avoid distributing 
-		# runtime DLLs on Windows.
-		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPCRE2_STATIC -DIN_LIBUNISTRING -DIDN2_STATIC -DPSL_STATIC")
-		set (PCRE2_LIBRARIES pcre2-8.a)
-		set (ZLIB_LIBRARIES z.a)
-		set (UNISTRING_LIBRARIES unistring.a iconv.a)
-	endif ()
+    if (MINGW)
+        # Switch to static linking of the dependencies to avoid distributing
+        # runtime DLLs on Windows.
+        set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPCRE2_STATIC -DIN_LIBUNISTRING -DIDN2_STATIC -DPSL_STATIC")
+        set (PCRE2_LIBRARIES pcre2-8.a)
+        set (ZLIB_LIBRARIES z.a)
+        set (UNISTRING_LIBRARIES unistring.a iconv.a)
+    endif ()
 elseif (IOS)
     if (IOS_DIR STREQUAL "")
         message (FATAL_ERROR "iOS dependencies not found (set IOS_DIR)")
@@ -128,7 +128,7 @@ macro (tfdn_link_depends target mode)
         ${OPENSSL_INCLUDE_DIRS}
     )
     target_link_libraries (${target} ${mode} ${UNISTRING_LIBRARIES})
-    if (iPlatformWindows)    
+    if (iPlatformWindows)
         target_link_libraries (${target} ${mode} ws2_32 iphlpapi)   # Winsock2
     endif ()
     if (ZLIB_FOUND)
