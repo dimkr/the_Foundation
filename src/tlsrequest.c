@@ -966,8 +966,9 @@ static int processIncoming_TlsRequest_(iTlsRequest *d, const char *src, size_t l
         }
         if (!d->cert) {
             STACK_OF(X509) *chain = SSL_get_peer_cert_chain(d->ssl);
-            d->cert = newX509Chain_TlsCertificate_(SSL_get_peer_certificate(d->ssl),
-                                                   X509_chain_up_ref(chain));
+            X509 *cert = sk_X509_value(chain, 0);
+            X509_up_ref(cert);
+            d->cert = newX509Chain_TlsCertificate_(cert, X509_chain_up_ref(chain));
         }
         /* The encrypted data is now in the input bio so now we can perform actual
            read of unencrypted data. */
