@@ -53,6 +53,7 @@ struct Impl_Socket {
     iBuffer *output;
     iBuffer *input;
     enum iSocketStatus status;
+    enum iSocketType type;
     iAddress *address;
     SOCKET fd;
     HANDLE fdEvent;
@@ -237,8 +238,8 @@ iLocalDef void start_SocketThread(iSocketThread *d) { start_Thread(&d->thread); 
 /*-------------------------------------------------------------------------------------*/
 
 iDefineObjectConstructionArgs(Socket,
-                              (const char *hostName, uint16_t port),
-                              hostName, port)
+                              (const char *hostName, uint16_t port, enum iSocketType socketType)),
+                              hostName, port, socketType)
 
 static iBool setStatus_Socket_(iSocket *d, enum iSocketStatus status) {
     if (d->status != status) {
@@ -271,6 +272,7 @@ static void init_Socket_(iSocket *d) {
     d->bytesWritten = NULL;
     d->writeFinished = NULL;
     d->status = initialized_SocketStatus;
+    d->type = tcp_SocketType;
 }
 
 void deinit_Socket(iSocket *d) {
@@ -487,23 +489,23 @@ iSocket *newAddress_Socket(const iAddress *address) {
     return d;
 }
 
-iSocket *newExisting_Socket(int fd, const void *sockAddr, size_t sockAddrSize) {
+iSocket *newExisting_Socket(int fd, const void *sockAddr, size_t sockAddrSize, enum iSocketType socketType) {
     iSocket *d = iNew(Socket);
     init_Socket_(d);
     d->fd = fd;
     WSAEventSelect(d->fd, d->fdEvent, FD_READ | FD_CLOSE);
-    d->address = newSockAddr_Address(sockAddr, sockAddrSize, tcp_SocketType);
+    d->address = newSockAddr_Address(sockAddr, sockAddrSize, socketType);
     setStatus_Socket_(d, connected_SocketStatus);
     startThread_Socket_(d);
     return d;
 }
 
-void init_Socket(iSocket *d, const char *hostName, uint16_t port) {
+void init_Socket(iSocket *d, const char *hostName, uint16_t port, enum iSocketType socketType) {
     init_Socket_(d);
     d->address = new_Address();
     setStatus_Socket_(d, addressLookup_SocketStatus);
     iConnect(Address, d->address, lookupFinished, d, addressLookedUp_Socket_);
-    lookupTcpCStr_Address(d->address, hostName, port);
+    lookupCStr_Address(d->address, hostName, port, socketType);
 }
 
 iBool open_Socket(iSocket *d) {

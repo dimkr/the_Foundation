@@ -74,7 +74,7 @@ static iThreadResult listen_Service_(iThread *thd) {
                 iWarning("[Service] error on accept: %s\n", strerror(errno));
                 break;
             }
-            iSocket *socket = newExisting_Socket(incoming, &addr, size);
+            iSocket *socket = newExisting_Socket(incoming, &addr, size, tcp_SocketType);
             iNotifyAudienceArgs(d, incomingAccepted, ServiceIncomingAccepted, socket);
             iRelease(socket);
         }

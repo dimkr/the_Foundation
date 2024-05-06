@@ -55,6 +55,7 @@ struct Impl_Socket {
     iBuffer *output;
     iBuffer *input;
     enum iSocketStatus status;
+    enum iSocketType type;
     iAddress *address;
     int fd;
     iPipe *stopConnect;
@@ -97,6 +98,8 @@ struct Impl_SocketThread {
     iAtomicInt mode; /* enum iSocketThreadMode */
 };
 
+static void setError_Socket_(iSocket *d, int number, const char *message);
+
 static iThreadResult run_SocketThread_(iThread *thread) {
     iSocketThread *d = (iAny *) thread;
     iMutex *smx = &d->socket->mutex;
@@ -137,8 +140,12 @@ static iThreadResult run_SocketThread_(iThread *thread) {
                 return 0;
             }
             if (readSize == -1) {
+                int err = errno;
                 if (status_Socket(d->socket) == connected_SocketStatus) {
                     iWarning("[Socket] error when receiving: %s\n", strerror(errno));
+                    if (err == ECONNREFUSED) {
+                        setError_Socket_(d->socket, ECONNREFUSED, strerror(err));
+                    }
                     shutdown_Socket_(d->socket);
                     return errno;
                 }
@@ -238,8 +245,8 @@ iLocalDef void start_SocketThread(iSocketThread *d) { start_Thread(&d->thread); 
 /*-------------------------------------------------------------------------------------*/
 
 iDefineObjectConstructionArgs(Socket,
-                              (const char *hostName, uint16_t port),
-                              hostName, port)
+                              (const char *hostName, uint16_t port, enum iSocketType socketType),
+                              hostName, port, socketType)
 
 static iBool setStatus_Socket_(iSocket *d, enum iSocketStatus status) {
     if (d->status != status) {
@@ -258,6 +265,7 @@ static void init_Socket_(iSocket *d) {
     openEmpty_Buffer(d->output);
     openEmpty_Buffer(d->input);
     d->fd = -1;
+    d->type = tcp_SocketType;
     d->address = NULL;
     d->stopConnect = new_Pipe(); /* used for aborting select() on user action */
     d->connecting = NULL;
@@ -501,22 +509,22 @@ iSocket *newAddress_Socket(const iAddress *address) {
     return d;
 }
 
-iSocket *newExisting_Socket(int fd, const void *sockAddr, size_t sockAddrSize) {
+iSocket *newExisting_Socket(int fd, const void *sockAddr, size_t sockAddrSize, enum iSocketType socketType) {
     iSocket *d = iNew(Socket);
     init_Socket_(d);
     d->fd = fd;
-    d->address = newSockAddr_Address(sockAddr, sockAddrSize, tcp_SocketType);
+    d->address = newSockAddr_Address(sockAddr, sockAddrSize, socketType);
     setStatus_Socket_(d, connected_SocketStatus);
     startThread_Socket_(d);
     return d;
 }
 
-void init_Socket(iSocket *d, const char *hostName, uint16_t port) {
+void init_Socket(iSocket *d, const char *hostName, uint16_t port, enum iSocketType socketType) {
     init_Socket_(d);
     d->address = new_Address();
     setStatus_Socket_(d, addressLookup_SocketStatus);
     iConnect(Address, d->address, lookupFinished, d, addressLookedUp_Socket_);
-    lookupTcpCStr_Address(d->address, hostName, port);
+    lookupCStr_Address(d->address, hostName, port, socketType);
 }
 
 iBool open_Socket(iSocket *d) {

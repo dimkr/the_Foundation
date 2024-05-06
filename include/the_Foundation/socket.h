@@ -73,10 +73,10 @@ enum iSocketStatus {
     disconnected_SocketStatus,
 };
 
-iDeclareObjectConstructionArgs(Socket, const char *hostName, uint16_t port)
+iDeclareObjectConstructionArgs(Socket, const char *hostName, uint16_t port, enum iSocketType socketType)
 
 iSocket *   newAddress_Socket   (const iAddress *address);
-iSocket *   newExisting_Socket  (int fd, const void *sockAddr, size_t sockAddrSize);
+iSocket *   newExisting_Socket  (int fd, const void *sockAddr, size_t sockAddrSize, enum iSocketType socketType);
 
 iBool       open_Socket     (iSocket *);
 void        close_Socket    (iSocket *);

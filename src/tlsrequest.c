@@ -1118,7 +1118,7 @@ void submit_TlsRequest(iTlsRequest *d) {
     if (d->sessionCacheEnabled) {
         d->cert = maybeReuseSession_Context_(context_, d->ssl, d->hostName, d->port, d->clientCert);
     }
-    d->socket = new_Socket(cstr_String(d->hostName), d->port);
+    d->socket = new_Socket(cstr_String(d->hostName), d->port, tcp_SocketType);
     iConnect(Socket, d->socket, connected, d, connected_TlsRequest_);
     iConnect(Socket, d->socket, disconnected, d, disconnected_TlsRequest_);
     iConnect(Socket, d->socket, readyRead, d, gotIncoming_TlsRequest_);
